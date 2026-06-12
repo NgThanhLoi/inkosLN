@@ -3056,11 +3056,11 @@ describe("PipelineRunner", () => {
       state.saveChapterIndex(bookId, [{
         number: 1,
         title: "夜灯",
-        status: "approved" as ChapterMeta["status"],
+        status: "audit-failed" as ChapterMeta["status"],
         wordCount: 55,
         createdAt: now,
         updatedAt: now,
-        auditIssues: [],
+        auditIssues: ["[critical] stale hook ledger issue"],
         lengthWarnings: [],
       }]),
     ]);
@@ -3105,6 +3105,7 @@ describe("PipelineRunner", () => {
     await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toBe("synced state");
     await expect(readFile(join(storyDir, "pending_hooks.md"), "utf-8")).resolves.toBe("synced hooks");
     expect(savedIndex[0]?.status).toBe("ready-for-review");
+    expect(savedIndex[0]?.auditIssues).toEqual([]);
 
     await rm(root, { recursive: true, force: true });
   });

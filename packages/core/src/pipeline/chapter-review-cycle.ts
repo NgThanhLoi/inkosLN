@@ -196,6 +196,9 @@ export async function runChapterReviewCycle(params: {
 
   const isPassed = (assessment: { auditResult: AuditResult; score: number; lengthInRange: boolean }): boolean =>
     assessment.auditResult.passed && assessment.score >= PASS_SCORE_THRESHOLD && assessment.lengthInRange;
+  const criticalIssueCount = (assessment: { auditResult: AuditResult }): number =>
+    assessment.auditResult.issues.filter((issue) => issue.severity === "critical").length;
+
 
   // ---------------------------------------------------------------------------
   // Scoring loop: assess → revise → assess. Default is one automatic repair pass;
@@ -271,8 +274,12 @@ export async function runChapterReviewCycle(params: {
         break;
       }
 
-      // Check net improvement
-      if (nextAssessment.score >= currentAudit.score + NET_IMPROVEMENT_EPSILON) {
+      // Check net improvement. Deterministic critical fixes can be more important
+      // than a small LLM score delta; keep them instead of reverting to stale blockers.
+      if (
+        nextAssessment.score >= currentAudit.score + NET_IMPROVEMENT_EPSILON
+        || criticalIssueCount(nextAssessment) < criticalIssueCount(currentAudit)
+      ) {
         finalContent = revisedContent;
         finalWordCount = revisedWordCount;
         postReviseCount = revisedWordCount;

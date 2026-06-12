@@ -2119,6 +2119,8 @@ export class PipelineRunner {
         ...targetMeta,
         status: "ready-for-review",
         updatedAt: new Date().toISOString(),
+        auditIssues: [],
+        reviewNote: undefined,
       };
     }
     await this.state.saveChapterIndex(bookId, index);

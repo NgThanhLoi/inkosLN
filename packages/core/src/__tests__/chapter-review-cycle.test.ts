@@ -226,6 +226,57 @@ describe("runChapterReviewCycle v9", () => {
     expect(result.finalContent).toBe("a".repeat(200));
   });
 
+  it("keeps a revision that clears critical deterministic issues even without net score gain", async () => {
+    const auditChapter = vi.fn()
+      .mockResolvedValueOnce(createAuditResult({
+        passed: false,
+        overallScore: 80,
+        issues: [{ severity: "warning", category: "style", description: "rough", suggestion: "smooth" }],
+      }))
+      .mockResolvedValueOnce(createAuditResult({
+        passed: false,
+        overallScore: 81,
+        issues: [{ severity: "warning", category: "style", description: "still rough", suggestion: "smooth" }],
+      }));
+
+    const reviseChapter = vi.fn().mockResolvedValue({
+      revisedContent: "a".repeat(200),
+      wordCount: 200,
+      fixedIssues: ["fixed hook ledger"],
+      updatedState: "", updatedLedger: "", updatedHooks: "",
+      tokenUsage: ZERO_USAGE,
+    });
+
+    const normalizeDraftLengthIfNeeded = vi.fn()
+      .mockImplementation(async (content: string) => ({
+        content,
+        wordCount: content.length,
+        applied: false,
+        tokenUsage: ZERO_USAGE,
+      }));
+
+    const result = await runChapterReviewCycle({
+      ...baseParams,
+      initialOutput: {
+        content: "c".repeat(200),
+        wordCount: 200,
+        postWriteErrors: [],
+      },
+      createReviser: () => ({ reviseChapter }),
+      auditor: { auditChapter },
+      normalizeDraftLengthIfNeeded,
+      maxReviewIterations: 1,
+      runPostWriteChecks: (content) =>
+        content === "c".repeat(200)
+          ? [{ severity: "critical" as const, category: "hook-ledger", description: "memo action missing", suggestion: "add landing" }]
+          : [],
+    });
+
+    expect(result.finalContent).toBe("a".repeat(200));
+    expect(result.auditResult.issues.some(i => i.category === "hook-ledger")).toBe(false);
+    expect(result.revised).toBe(true);
+  });
+
   it("stops immediately when initial score passes threshold", async () => {
     const auditChapter = vi.fn()
       .mockResolvedValue(createAuditResult({ overallScore: 88 }));
