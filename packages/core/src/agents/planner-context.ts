@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { parseMarkdownTableRows } from "../utils/story-markdown.js";
 import { readCharacterContext } from "../utils/outline-paths.js";
 import { readBookRules as readStructuredBookRules } from "./rules-reader.js";
+import type { InkOSLanguage } from "../utils/language.js";
 import type { StoredHook } from "../state/memory-db.js";
 
 async function readOrEmpty(path: string): Promise<string> {
@@ -271,7 +272,7 @@ export function extractRelevantThreads(pendingHooksRaw: string, subplotBoardRaw:
 export function formatRecyclableHooks(
   hooks: ReadonlyArray<StoredHook>,
   chapterNumber: number,
-  language: "zh" | "en" = "zh",
+  language: InkOSLanguage = "zh",
 ): string {
   if (hooks.length === 0) {
     return language === "en"

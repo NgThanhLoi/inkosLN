@@ -11,6 +11,7 @@ import {
   type VolumeBoundary,
 } from "../utils/hook-promotion.js";
 import type { StoredHook } from "../state/memory-db.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 // ---------------------------------------------------------------------------
 // Phase 5 (v13) — Static 骨架 layer collapse
@@ -142,14 +143,26 @@ export class ArchitectAgent extends BaseAgent {
     const langPrefix = resolvedLanguage === "en"
       ? `【LANGUAGE OVERRIDE】ALL output (story_frame, volume_map, roles, book_rules, pending_hooks) MUST be written in English. Character names, place names, and all prose must be in English. The === SECTION: === tags remain unchanged. Do NOT emit rhythm_principles or current_state sections — rhythm principles live inside the last paragraph of volume_map; environment/era anchors (when relevant) are woven into story_frame's world-tonal-ground paragraph.\n\n`
       : "";
+    const viLangPrefix = resolvedLanguage === "vi"
+      ? `【NGÔN NGỮ ĐẦU RA】Tất cả nội dung (story_frame, volume_map, roles, book_rules, pending_hooks) PHẢI được viết bằng tiếng Việt. Tên riêng/canon/proper nouns đã xuất hiện trong brief, nguồn nghiên cứu, fanfic canon hoặc nguyên tác phải giữ nguyên chính tả gốc; không phiên âm, không Việt hóa, không dịch nếu không có chỉ thị rõ ràng. KHÔNG viết bằng tiếng Trung hay tiếng Anh ngoài các tên riêng cần giữ nguyên.\n\n`
+      : "";
     const userMessage = resolvedLanguage === "en"
       ? `Generate the complete foundation for a ${gp.name} novel titled "${book.title}". Write everything in English.`
+      : resolvedLanguage === "vi"
+      ? `Hãy tạo toàn bộ nền tảng cho tiểu thuyết ${gp.name} có tựa đề "${book.title}". Viết mọi thứ bằng tiếng Việt.`
       : `请为标题为"${book.title}"的${gp.name}小说生成完整基础设定。`;
 
-    const response = await this.chat([
-      { role: "system", content: langPrefix + systemPrompt + revisePrompt },
-      { role: "user", content: userMessage },
-    ], { temperature: 0.8 });
+    // Build structural instructions that may be injected into user message
+    const structuralInstructions = this.buildStructuralInstructions(resolvedLanguage);
+
+    const response = await this.chat(
+      this.buildChatMessages(
+        (langPrefix || viLangPrefix) + systemPrompt + revisePrompt,
+        userMessage,
+        structuralInstructions,
+      ),
+      { temperature: 0.8 },
+    );
 
     return this.parseSections(response.content, resolvedLanguage);
   }
@@ -395,7 +408,15 @@ enableFullCastTracking: false
 - **pending_hooks 表必须包含 Phase 7 扩展列——depends_on 标出因果链、pays_off_in_arc 锁定回收大致位置、core_hook 标记主线承重伏笔（3-7 条）、half_life 仅给重点伏笔设置**
 
 ## 硬性完结检查（生成前读一遍）
-必须依次输出全部 **5 个 SECTION 块**：story_frame → volume_map → roles → book_rules → pending_hooks，不允许因为 story_frame 或 volume_map 写长了就不写后 3 段。哪怕 roles 只列 3 个角色、book_rules 只有 YAML 小块、pending_hooks 只有 3 行，也要完整输出。只有写完 pending_hooks 最后一行才算交付。`;
+必须依次输出全部 **5 个 SECTION 块**：story_frame → volume_map → roles → book_rules → pending_hooks，不允许因为 story_frame 或 volume_map 写长了就不写后 3 段。哪怕 roles 只列 3 个角色、book_rules 只有 YAML 小块、pending_hooks 只有 3 行，也要完整输出。只有写完 pending_hooks 最后一行才算交付。
+
+## ⚠️ LUẬT NGÔN NGỮ: VIẾT BẰNG TIẾNG VIỆT
+ĐÂY LÀ TIỂU THUYẾT VIỆT NAM. TUYỆT ĐỐI KHÔNG viết tiếng Trung.
+
+Toàn bộ nội dung PHẢI bằng tiếng Việt (kể cả các SECTION story_frame, volume_map, roles, book_rules, pending_hooks):
+- Mô tả, cốt truyện, hội thoại → tiếng Việt
+- Tên riêng/canon/proper nouns đã xuất hiện trong brief, nguồn nghiên cứu, fanfic canon hoặc nguyên tác phải giữ nguyên chính tả gốc; không phiên âm, không Việt hóa, không dịch nếu không có chỉ thị rõ ràng
+- KHÔNG viết chữ Hán, chữ Trung Quốc hay tiếng Anh trong văn xuôi thường; ngoại lệ duy nhất là tên riêng/canon/proper nouns cần giữ nguyên dạng gốc`;
   }
 
   private buildEnglishFoundationPrompt(
@@ -597,7 +618,7 @@ You MUST emit all **5 SECTION blocks in order**: story_frame → volume_map → 
   // -------------------------------------------------------------------------
   // Parsing
   // -------------------------------------------------------------------------
-  private parseSections(content: string, language: "zh" | "en"): ArchitectOutput {
+  private parseSections(content: string, language: InkOSLanguage): ArchitectOutput {
     const parsedSections = new Map<string, string>();
     const sectionPattern = /^\s*===\s*SECTION\s*[：:]\s*([^\n=]+?)\s*===\s*$/gim;
     const matches = [...content.matchAll(sectionPattern)];
@@ -718,14 +739,14 @@ You MUST emit all **5 SECTION blocks in order**: story_frame → volume_map → 
     return roles;
   }
 
-  private buildStoryBibleShim(storyFrame: string, language: "zh" | "en"): string {
+  private buildStoryBibleShim(storyFrame: string, language: InkOSLanguage): string {
     if (language === "en") {
       return `# Story Bible (compat pointer — deprecated)\n\n> This file is kept for external readers only. The authoritative source is now:\n> - outline/story_frame.md (theme / tonal ground / core conflict / world rules / endgame)\n> - outline/volume_map.md (chapter-granular plot map)\n> - roles/ directory (one-file-per-character sheets)\n\n## Excerpt from story_frame\n\n${storyFrame.slice(0, 2000)}\n`;
     }
     return `# 故事圣经（兼容指针——已废弃）\n\n> 本文件仅为外部读取保留。权威来源已迁移至：\n> - outline/story_frame.md（主题 / 基调 / 核心冲突 / 世界铁律 / 终局）\n> - outline/volume_map.md（章级别的分卷地图）\n> - roles/ 文件夹（一人一卡角色档案）\n\n## story_frame 摘录\n\n${storyFrame.slice(0, 2000)}\n`;
   }
 
-  private buildCharacterMatrixShim(roles: ReadonlyArray<ArchitectRole>, language: "zh" | "en"): string {
+  private buildCharacterMatrixShim(roles: ReadonlyArray<ArchitectRole>, language: InkOSLanguage): string {
     const majorLines = roles.filter((role) => role.tier === "major")
       .map((role) => `- roles/主要角色/${role.name}.md`);
     const minorLines = roles.filter((role) => role.tier === "minor")
@@ -737,7 +758,7 @@ You MUST emit all **5 SECTION blocks in order**: story_frame → volume_map → 
     return `# 角色矩阵（兼容指针——已废弃）\n\n> 本文件仅为外部读取保留。权威来源已迁移至 roles/ 文件夹（一人一卡）。\n\n## 主要角色\n\n${majorLines.join("\n") || "（无）"}\n\n## 次要角色\n\n${minorLines.join("\n") || "（无）"}\n`;
   }
 
-  private buildBookRulesShim(bookRulesBody: string, language: "zh" | "en"): string {
+  private buildBookRulesShim(bookRulesBody: string, language: InkOSLanguage): string {
     const trimmedBody = bookRulesBody.trim();
     if (language === "en") {
       const excerpt = trimmedBody
@@ -758,7 +779,7 @@ You MUST emit all **5 SECTION blocks in order**: story_frame → volume_map → 
     bookDir: string,
     output: ArchitectOutput,
     _numericalSystem: boolean = true,
-    language: "zh" | "en" = "zh",
+    language: InkOSLanguage = "zh",
     mode: "init" | "revise" = "init",
   ): Promise<void> {
     const storyDir = join(bookDir, "story");
@@ -1017,10 +1038,14 @@ ${continuationDirective}
       ? `Generate the complete foundation for an imported ${gp.name} novel titled "${book.title}". Write everything in English.\n\n${chaptersText}`
       : `以下是《${book.title}》的已有正文资料包，请从中反向推导完整基础设定：\n\n${chaptersText}`;
 
-    const response = await this.chat([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ], { temperature: 0.5 });
+    const response = await this.chat(
+      this.buildChatMessages(
+        systemPrompt,
+        userMessage,
+        this.buildStructuralInstructions(resolvedLanguage),
+      ),
+      { temperature: 0.5 },
+    );
 
     return this.parseSections(response.content, resolvedLanguage);
   }
@@ -1071,23 +1096,67 @@ ${genreBody}
 - 主角弧线只写在 roles/主要角色/<主角>.md，不在 story_frame 重复
 - 所有 outline 必须是散文密度`;
 
-    const response = await this.chat([
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `请为标题为"${book.title}"的${fanficMode}模式同人小说生成基础设定。目标${book.targetChapters}章，每章${book.chapterWordCount}字。`,
-      },
-    ], { temperature: 0.7 });
+    const fanficLang = book.language ?? "zh";
+    const viFanficPrefix = fanficLang === "vi"
+      ? `\n\n## ⚠️ NGÔN NGỮ ĐẦU RA: TIẾNG VIỆT\nTất cả nội dung đầu ra PHẢI được viết bằng tiếng Việt. Tên riêng/canon/proper nouns từ fanfic canon hoặc nguyên tác phải giữ nguyên chính tả gốc; không phiên âm, không Việt hóa, không dịch nếu không có chỉ thị rõ ràng. KHÔNG viết bằng tiếng Trung hay tiếng Anh ngoài các tên riêng cần giữ nguyên.`
+      : "";
+    const fanficUserMsg = fanficLang === "en"
+      ? `Generate the complete foundation for a ${fanficMode} fanfic titled "${book.title}". Target ${book.targetChapters} chapters at ${book.chapterWordCount} words each. Write everything in English.`
+      : fanficLang === "vi"
+      ? `Hãy tạo toàn bộ nền tảng cho fanfic ${fanficMode} có tựa đề "${book.title}". Mục tiêu ${book.targetChapters} chương, mỗi chương ${book.chapterWordCount} từ. Viết mọi thứ bằng tiếng Việt.`
+      : `请为标题为"${book.title}"的${fanficMode}模式同人小说生成基础设定。目标${book.targetChapters}章，每章${book.chapterWordCount}字。`;
+    const response = await this.chat(
+      this.buildChatMessages(
+        systemPrompt + viFanficPrefix,
+        fanficUserMsg,
+        this.buildStructuralInstructions(fanficLang),
+      ),
+      { temperature: 0.7 },
+    );
 
-    return this.parseSections(response.content, book.language ?? "zh");
+    return this.parseSections(response.content, fanficLang);
   }
 
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Return the minimal, non-negotiable structural instruction that tells the
+   * model exactly which section headers it MUST emit.  This is kept separate
+   * from the long prose-dense system prompt so it can be injected into the
+   * user message when the LLM ignores system prompts.
+   */
+  private buildStructuralInstructions(language: InkOSLanguage): string {
+    if (language === "en") {
+      return `OUTPUT FORMAT CONTRACT (MANDATORY — do NOT deviate):
+
+You MUST output EXACTLY these 5 section headers in this EXACT order. Do NOT use markdown formatting on section headers. Do NOT invent your own section names. Each section MUST start with the exact header below:
+
+=== SECTION: story_frame ===
+=== SECTION: volume_map ===
+=== SECTION: roles ===
+=== SECTION: book_rules ===
+=== SECTION: pending_hooks ===
+
+If you skip any section, rename a section, or use a different header format, your output will be REJECTED. Do NOT add extra sections. Do NOT put any text before the first section header.`;
+    }
+    return `输出格式契约（强制要求 — 不可偏离）：
+
+你必须严格按照以下 5 个 section header 的精确顺序输出。不要使用 markdown 格式处理 header。不要自创 section 名称。每个 section 必须以精确的 header 开头：
+
+=== SECTION: story_frame ===
+=== SECTION: volume_map ===
+=== SECTION: roles ===
+=== SECTION: book_rules ===
+=== SECTION: pending_hooks ===
+
+如果遗漏任何 section、重命名 section、或使用不同的 header 格式，输出将被拒绝。不要添加额外 section。不要在第一个 section header 之前输出任何文本。`;
+  }
+
   private buildReviewFeedbackBlock(
     reviewFeedback: string | undefined,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): string {
     const trimmed = reviewFeedback?.trim();
     if (!trimmed) return "";
@@ -1147,7 +1216,7 @@ ${trimmed}\n`;
       return section;
     }
 
-    const language: "zh" | "en" = /[\u4e00-\u9fff]/.test(section) ? "zh" : "en";
+    const language: InkOSLanguage = /[\u4e00-\u9fff]/.test(section) ? "zh" : "en";
     const normalizedHooks = dataRows.map((row, index) => {
       const rawProgress = row[4] ?? "";
       const normalizedProgress = this.parseHookChapterNumber(rawProgress);
@@ -1275,7 +1344,7 @@ ${trimmed}\n`;
     return !["0", "none", "n/a", "na", "-", "无", "未推进"].includes(normalized);
   }
 
-  private mergeHookNotes(notes: string, seedNote: string, language: "zh" | "en"): string {
+  private mergeHookNotes(notes: string, seedNote: string, language: InkOSLanguage): string {
     const trimmedNotes = notes.trim();
     const trimmedSeed = seedNote.trim();
     if (!trimmedSeed) {

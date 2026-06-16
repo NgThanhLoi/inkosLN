@@ -2,12 +2,19 @@ import { BaseAgent } from "./base.js";
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { BookRules } from "../models/book-rules.js";
-import { buildWriterSystemPrompt, type FanficContext } from "./writer-prompts.js";
+import {
+  buildProperNameGlossaryBlock,
+  buildWriterSystemPrompt,
+  extractCanonicalProperNames,
+  extractVietnameseTransliteratedVariants,
+  type FanficContext,
+} from "./writer-prompts.js";
 import { buildSettlerSystemPrompt, buildSettlerUserPrompt } from "./settler-prompts.js";
 import { buildObserverSystemPrompt, buildObserverUserPrompt } from "./observer-prompts.js";
 import { parseSettlerDeltaOutput } from "./settler-delta-parser.js";
 import { parseSettlementOutput } from "./settler-parser.js";
 import { readGenreProfile, readBookRules } from "./rules-reader.js";
+import type { InkOSLanguage } from "../utils/language.js";
 import {
   detectCrossChapterRepetition,
   detectParagraphLengthDrift,
@@ -16,6 +23,8 @@ import {
   type PostWriteViolation,
 } from "./post-write-validator.js";
 import { analyzeAITells } from "./ai-tells.js";
+import { buildOpusHardStateCapsule, buildOpusParagraphBudget, isOpusWritingMode } from "./opus-writing-mode.js";
+import { validateOpusPostWrite } from "./opus-post-validator.js";
 import type { ChapterIntent, ChapterMemo, ContextPackage, RuleStack } from "../models/input-governance.js";
 import type { LengthSpec } from "../models/length-governance.js";
 import type { RuntimeStateDelta } from "../models/runtime-state.js";
@@ -74,7 +83,9 @@ export interface WriteChapterInput {
   readonly book: BookConfig;
   readonly bookDir: string;
   readonly chapterNumber: number;
+  readonly stateWriter?: WriterAgent;
   readonly externalContext?: string;
+  readonly researchContext?: string;
   readonly chapterIntent?: string;
   readonly chapterMemo?: ChapterMemo;
   readonly chapterIntentData?: ChapterIntent;
@@ -137,15 +148,15 @@ export class WriterAgent extends BaseAgent {
     return "writer";
   }
 
-  private localize(language: "zh" | "en", messages: { zh: string; en: string }): string {
-    return language === "en" ? messages.en : messages.zh;
+  private localize(language: InkOSLanguage, messages: { zh: string; en: string; vi?: string }): string {
+    return messages[language] ?? messages.en;
   }
 
-  private logInfo(language: "zh" | "en", messages: { zh: string; en: string }): void {
+  private logInfo(language: InkOSLanguage, messages: { zh: string; en: string; vi?: string }): void {
     this.ctx.logger?.info(this.localize(language, messages));
   }
 
-  private logWarn(language: "zh" | "en", messages: { zh: string; en: string }): void {
+  private logWarn(language: InkOSLanguage, messages: { zh: string; en: string; vi?: string }): void {
     this.ctx.logger?.warn(this.localize(language, messages));
   }
 
@@ -156,7 +167,7 @@ export class WriterAgent extends BaseAgent {
     const [
       storyBible, volumeOutline, styleGuide, currentState, ledger, hooks,
       chapterSummaries, subplotBoard, emotionalArcs, characterMatrix, styleProfileRaw,
-      parentCanon, fanficCanonRaw,
+      parentCanon, fanficCanonRaw, brief, authorIntent,
     ] = await Promise.all([
         readStoryFrame(bookDir, placeholder),
         readVolumeMap(bookDir, placeholder),
@@ -175,6 +186,8 @@ export class WriterAgent extends BaseAgent {
         this.readFileOrDefault(join(bookDir, "story/style_profile.json")),
         this.readFileOrDefault(join(bookDir, "story/parent_canon.md")),
         this.readFileOrDefault(join(bookDir, "story/fanfic_canon.md")),
+        this.readFileOrDefault(join(bookDir, "story/brief.md")),
+        this.readFileOrDefault(join(bookDir, "story/author_intent.md")),
       ]);
 
     const recentChapters = await this.loadRecentChapters(bookDir, chapterNumber);
@@ -207,6 +220,46 @@ export class WriterAgent extends BaseAgent {
           chapterNumber,
         })
       : null;
+    const forbiddenProperNameVariants = extractVietnameseTransliteratedVariants([
+      recentChapters,
+      chapterSummaries,
+      currentState,
+      hooks,
+    ]);
+    const properNameGlossaryBlock = buildProperNameGlossaryBlock(
+      resolvedLanguage,
+      extractCanonicalProperNames([
+        brief,
+        authorIntent,
+        storyBible,
+        volumeOutline,
+        currentState,
+        hooks,
+        chapterSummaries,
+        characterMatrix,
+        bookRulesBody,
+        parentCanon,
+        fanficCanonRaw,
+        input.externalContext ?? "",
+        input.researchContext ?? "",
+      ]),
+      forbiddenProperNameVariants,
+    );
+    const opusMode = isOpusWritingMode(this.ctx.client.defaults.extra);
+    const opusControlBlock = opusMode
+      ? [
+          buildOpusHardStateCapsule({
+            language: resolvedLanguage,
+            currentState,
+            externalContext: input.externalContext,
+            chapterNumber,
+          }),
+          buildOpusParagraphBudget({
+            language: resolvedLanguage,
+            targetWords,
+          }),
+        ].join("\n\n")
+      : "";
 
     // Build fanfic context if fanfic_canon.md exists
     const fanficContext: FanficContext | undefined = hasFanficCanon && bookRules?.fanficMode
@@ -233,11 +286,13 @@ export class WriterAgent extends BaseAgent {
           contextPackage: input.contextPackage,
           ruleStack: input.ruleStack,
           externalContext: input.externalContext,
+          researchContext: input.researchContext,
           lengthSpec: resolvedLengthSpec,
           language: book.language ?? genreProfile.language,
           varianceBrief: englishVarianceBrief?.text,
-          selectedEvidenceBlock: this.joinGovernedEvidenceBlocks(governedMemoryBlocks),
-        })
+	          selectedEvidenceBlock: this.joinGovernedEvidenceBlocks(governedMemoryBlocks),
+	          properNameGlossaryBlock: [properNameGlossaryBlock, opusControlBlock].filter(Boolean).join("\n\n"),
+	        })
       : (() => {
           // Smart context filtering: inject only relevant parts of truth files
           const filteredHooks = filterHooks(hooks);
@@ -264,6 +319,7 @@ export class WriterAgent extends BaseAgent {
             recentChapters,
             lengthSpec: resolvedLengthSpec,
             externalContext: input.externalContext,
+            researchContext: input.researchContext,
             chapterSummaries: filteredSummaries,
             subplotBoard: filteredSubplots,
             emotionalArcs: filteredArcs,
@@ -272,7 +328,8 @@ export class WriterAgent extends BaseAgent {
             relevantSummaries,
             parentCanon: hasParentCanon ? parentCanon : undefined,
             language: book.language ?? genreProfile.language,
-          });
+	            properNameGlossaryBlock: [properNameGlossaryBlock, opusControlBlock].filter(Boolean).join("\n\n"),
+	          });
         })();
 
     const creativeTemperature = input.temperatureOverride ?? 0.7;
@@ -280,6 +337,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLanguage, {
       zh: `阶段 1：创作正文（第${chapterNumber}章）`,
       en: `Phase 1: creative writing for chapter ${chapterNumber}`,
+      vi: `Giai đoạn 1: viết sáng tác cho chương ${chapterNumber}`,
     });
 
     const creativeResponse = await this.chat(
@@ -287,8 +345,8 @@ export class WriterAgent extends BaseAgent {
         { role: "system", content: creativeSystemPrompt },
         { role: "user", content: creativeUserPrompt },
       ],
-      { temperature: creativeTemperature },
-    );
+	      { temperature: creativeTemperature },
+	    );
     const creativeUsage = creativeResponse.usage;
 
     const creative = parseCreativeOutput(chapterNumber, creativeResponse.content, resolvedLengthSpec.countingMode);
@@ -304,6 +362,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLanguage, {
       zh: `阶段 2：状态结算（第${chapterNumber}章，${creative.wordCount}字）`,
       en: `Phase 2: state settlement for chapter ${chapterNumber} (${creative.wordCount} words)`,
+      vi: `Giai đoạn 2: quyết toán state cho chương ${chapterNumber} (${creative.wordCount} từ)`,
     });
     const isGovernedSettlement = Boolean(input.chapterIntent && input.contextPackage && input.ruleStack);
     const filteredHooksForSettlement = isGovernedSettlement && input.contextPackage
@@ -330,7 +389,8 @@ export class WriterAgent extends BaseAgent {
         })
       : characterMatrix;
 
-    const settleResult = await this.settle({
+    const settlementWriter = input.stateWriter ?? this;
+    const settleResult = await settlementWriter.settle({
       book,
       genreProfile,
       bookRules,
@@ -359,7 +419,7 @@ export class WriterAgent extends BaseAgent {
     });
     const settlement = settleResult.settlement;
     const settleUsage = settleResult.usage;
-    const runtimeStateArtifacts = await this.buildRuntimeStateArtifactsIfPresent(
+    const runtimeStateArtifacts = await settlementWriter.buildRuntimeStateArtifactsIfPresent(
       bookDir,
       settlement.runtimeStateDelta,
       resolvedLanguage,
@@ -382,9 +442,12 @@ export class WriterAgent extends BaseAgent {
     // ── Post-write validation (regex + rule-based, zero LLM cost) ──
     const surfaceNormalizedContent = normalizePostWriteSurface(creative.content, resolvedLanguage);
     const surfaceNormalizedWordCount = countChapterLength(surfaceNormalizedContent, resolvedLengthSpec.countingMode);
-    const ruleViolations = [
-      ...validatePostWrite(surfaceNormalizedContent, genreProfile, bookRules, resolvedLanguage),
-      ...detectCrossChapterRepetition(surfaceNormalizedContent, fingerprintChapters, resolvedLanguage),
+	    const ruleViolations = [
+	      ...validatePostWrite(surfaceNormalizedContent, genreProfile, bookRules, resolvedLanguage, {
+	        forbiddenProperNameVariants,
+	      }),
+	      ...(opusMode ? validateOpusPostWrite(surfaceNormalizedContent, resolvedLanguage) : []),
+	      ...detectCrossChapterRepetition(surfaceNormalizedContent, fingerprintChapters, resolvedLanguage),
       ...detectParagraphLengthDrift(surfaceNormalizedContent, fingerprintChapters, resolvedLanguage),
     ];
     const aiTellIssues = analyzeAITells(surfaceNormalizedContent, resolvedLanguage).issues;
@@ -396,6 +459,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `后写校验：第${chapterNumber}章 ${postWriteErrors.length} 个错误，${postWriteWarnings.length} 个警告`,
         en: `Post-write: ${postWriteErrors.length} errors, ${postWriteWarnings.length} warnings in chapter ${chapterNumber}`,
+        vi: `Hậu kiểm: ${postWriteErrors.length} lỗi, ${postWriteWarnings.length} cảnh báo ở chương ${chapterNumber}`,
       });
       for (const v of ruleViolations) {
         this.ctx.logger?.warn(`[${v.severity}] ${v.rule}: ${v.description}`);
@@ -405,6 +469,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `AI 味检查：第${chapterNumber}章发现 ${aiTellIssues.length} 个问题`,
         en: `AI-tell check: ${aiTellIssues.length} issues in chapter ${chapterNumber}`,
+        vi: `Kiểm tra dấu hiệu AI: ${aiTellIssues.length} vấn đề ở chương ${chapterNumber}`,
       });
       for (const issue of aiTellIssues) {
         this.ctx.logger?.warn(`[${issue.severity}] ${issue.category}: ${issue.description}`);
@@ -414,6 +479,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `伏笔健康：第${chapterNumber}章发现 ${hookHealthIssues.length} 条警告`,
         en: `Hook health: ${hookHealthIssues.length} warning(s) in chapter ${chapterNumber}`,
+        vi: `Sức khỏe hook: ${hookHealthIssues.length} cảnh báo ở chương ${chapterNumber}`,
       });
       for (const issue of hookHealthIssues) {
         this.ctx.logger?.warn(`[${issue.severity}] ${issue.category}: ${issue.description}`);
@@ -525,7 +591,7 @@ export class WriterAgent extends BaseAgent {
       content: input.content,
       wordCount: countChapterLength(
         input.content,
-        resolvedLanguage === "en" ? "en_words" : "zh_chars",
+        resolvedLanguage === "en" ? "en_words" : resolvedLanguage === "vi" ? "vi_words" : "zh_chars",
       ),
       preWriteCheck: "",
       postSettlement: settlement.postSettlement,
@@ -586,6 +652,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLang, {
       zh: `阶段 2a：提取第${params.chapterNumber}章事实`,
       en: `Phase 2a: observing facts for chapter ${params.chapterNumber}`,
+      vi: `Giai đoạn 2a: trích xuất sự kiện chương ${params.chapterNumber}`,
     });
     const observerResponse = await this.chat(
       [
@@ -600,6 +667,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLang, {
       zh: "阶段 2b：把观察结果回写到真相文件",
       en: "Phase 2b: reflecting observations into truth files",
+      vi: "Giai đoạn 2b: ghi quan sát vào các tệp sự thật",
     });
     const settlerSystem = buildSettlerSystemPrompt(
       params.book, params.genreProfile, params.bookRules, resolvedLang,
@@ -693,7 +761,7 @@ export class WriterAgent extends BaseAgent {
     bookDir: string,
     output: WriteChapterOutput,
     numericalSystem: boolean = true,
-    language: "zh" | "en" = "zh",
+    language: InkOSLanguage = "zh",
   ): Promise<void> {
     const chaptersDir = join(bookDir, "chapters");
     const storyDir = join(bookDir, "story");
@@ -704,6 +772,8 @@ export class WriterAgent extends BaseAgent {
 
     const heading = language === "en"
       ? `# Chapter ${output.chapterNumber}: ${output.title}`
+      : language === "vi"
+      ? `# Chương ${output.chapterNumber}: ${output.title}`
       : `# 第${output.chapterNumber}章 ${output.title}`;
     const chapterContent = [
       heading,
@@ -718,9 +788,17 @@ export class WriterAgent extends BaseAgent {
 
     const writes: Array<Promise<void>> = [
       writeFile(join(chaptersDir, filename), chapterContent, "utf-8"),
-      writeFile(join(storyDir, "current_state.md"), runtimeStateArtifacts?.currentStateMarkdown ?? output.updatedState, "utf-8"),
-      writeFile(join(storyDir, "pending_hooks.md"), runtimeStateArtifacts?.hooksMarkdown ?? output.updatedHooks, "utf-8"),
     ];
+
+    const currentStateMarkdown = runtimeStateArtifacts?.currentStateMarkdown ?? output.updatedState;
+    if (!this.isStatePlaceholder(currentStateMarkdown)) {
+      writes.push(writeFile(join(storyDir, "current_state.md"), currentStateMarkdown, "utf-8"));
+    }
+
+    const hooksMarkdown = runtimeStateArtifacts?.hooksMarkdown ?? output.updatedHooks;
+    if (!this.isHooksPlaceholder(hooksMarkdown)) {
+      writes.push(writeFile(join(storyDir, "pending_hooks.md"), hooksMarkdown, "utf-8"));
+    }
 
     if (runtimeStateArtifacts?.chapterSummariesMarkdown) {
       writes.push(
@@ -733,12 +811,29 @@ export class WriterAgent extends BaseAgent {
     }
 
     if (numericalSystem) {
-      writes.push(
-        writeFile(join(storyDir, "particle_ledger.md"), output.updatedLedger, "utf-8"),
-      );
+      if (!this.isLedgerPlaceholder(output.updatedLedger)) {
+        writes.push(
+          writeFile(join(storyDir, "particle_ledger.md"), output.updatedLedger, "utf-8"),
+        );
+      }
     }
 
     await Promise.all(writes);
+  }
+
+  private isStatePlaceholder(value: string | undefined): boolean {
+    const trimmed = value?.trim();
+    return !trimmed || trimmed === "(状态卡未更新)" || trimmed === "(state card not updated)";
+  }
+
+  private isHooksPlaceholder(value: string | undefined): boolean {
+    const trimmed = value?.trim();
+    return !trimmed || trimmed === "(伏笔池未更新)" || trimmed === "(hooks pool not updated)";
+  }
+
+  private isLedgerPlaceholder(value: string | undefined): boolean {
+    const trimmed = value?.trim();
+    return !trimmed || trimmed === "(账本未更新)" || trimmed === "(ledger not updated)";
   }
 
   private buildUserPrompt(params: {
@@ -750,6 +845,7 @@ export class WriterAgent extends BaseAgent {
     readonly recentChapters: string;
     readonly lengthSpec: LengthSpec;
     readonly externalContext?: string;
+    readonly researchContext?: string;
     readonly chapterSummaries: string;
     readonly subplotBoard: string;
     readonly emotionalArcs: string;
@@ -757,7 +853,8 @@ export class WriterAgent extends BaseAgent {
     readonly dialogueFingerprints?: string;
     readonly relevantSummaries?: string;
     readonly parentCanon?: string;
-    readonly language?: "zh" | "en";
+    readonly language?: InkOSLanguage;
+    readonly properNameGlossaryBlock?: string;
   }): string {
     const currentState = this.capLegacyContext("current_state", params.currentState, LEGACY_WRITER_CONTEXT_BUDGET.currentState);
     const ledger = this.capLegacyContext("particle_ledger", params.ledger, LEGACY_WRITER_CONTEXT_BUDGET.ledger);
@@ -815,11 +912,18 @@ export class WriterAgent extends BaseAgent {
 本书是番外作品。以下正典约束不可违反，角色不得引用超出其信息边界的信息。
 ${parentCanon}\n`
       : "";
+    const researchBlock = params.researchContext?.trim()
+      ? `\n\n${params.researchContext.trim()}\n`
+      : "";
     const lengthRequirementBlock = this.buildLengthRequirementBlock(params.lengthSpec, params.language ?? "zh");
+    const properNameGlossaryBlock = params.properNameGlossaryBlock?.trim()
+      ? `\n\n${params.properNameGlossaryBlock.trim()}\n`
+      : "";
 
     if (params.language === "en") {
       return `Write chapter ${params.chapterNumber}.
 ${contextBlock}
+${properNameGlossaryBlock}
 ## Current State
 ${currentState}
 ${ledgerBlock}
@@ -832,6 +936,7 @@ ${params.recentChapters || "(This is the first chapter, no previous text)"}
 ## Worldbuilding
 ${storyBible}
 
+${researchBlock}
 ${lengthRequirementBlock}
 - Output PRE_WRITE_CHECK first, then the chapter
 - Output only PRE_WRITE_CHECK, CHAPTER_TITLE, and CHAPTER_CONTENT blocks`;
@@ -839,6 +944,7 @@ ${lengthRequirementBlock}
 
     return `请续写第${params.chapterNumber}章。
 ${contextBlock}
+${properNameGlossaryBlock}
 ## 当前状态卡
 ${currentState}
 ${ledgerBlock}
@@ -851,6 +957,7 @@ ${params.recentChapters || "(这是第一章，无前文)"}
 ## 世界观设定
 ${storyBible}
 
+${researchBlock}
 ${lengthRequirementBlock}
 - 先输出写作自检表，再写正文
       - 只需输出 PRE_WRITE_CHECK、CHAPTER_TITLE、CHAPTER_CONTENT 三个区块`;
@@ -867,10 +974,12 @@ ${lengthRequirementBlock}
     readonly contextPackage: ContextPackage;
     readonly ruleStack: RuleStack;
     readonly externalContext?: string;
+    readonly researchContext?: string;
     readonly lengthSpec: LengthSpec;
-    readonly language?: "zh" | "en";
+    readonly language?: InkOSLanguage;
     readonly varianceBrief?: string;
     readonly selectedEvidenceBlock?: string;
+    readonly properNameGlossaryBlock?: string;
   }): string {
     const language = params.language ?? "zh";
     const contextSections = renderNarrativeSelectedContext(
@@ -890,6 +999,12 @@ ${lengthRequirementBlock}
       ? `\n${sanitizeNarrativeEvidenceBlock(params.selectedEvidenceBlock, language)}\n`
       : "";
     const chapterContextBlock = this.buildChapterContextBlock(params.externalContext, language);
+    const researchBlock = params.researchContext?.trim()
+      ? `\n\n${params.researchContext.trim()}\n`
+      : "";
+    const properNameGlossaryBlock = params.properNameGlossaryBlock?.trim()
+      ? `\n${params.properNameGlossaryBlock.trim()}\n`
+      : "";
     const briefNarrative = renderMemoAsNarrativeBlock(params.chapterMemo, params.chapterIntentData, language);
 
     if (params.language === "en") {
@@ -897,11 +1012,14 @@ ${lengthRequirementBlock}
 
 ${chapterContextBlock}
 
+${properNameGlossaryBlock}
+
 ${briefNarrative}
 
 ## Selected Context
 ${contextSections || "(none)"}
 ${selectedEvidenceBlock}
+${researchBlock}
 
 ## Rule Stack
 - Hard: ${params.ruleStack.sections.hard.join(", ") || "(none)"}
@@ -918,11 +1036,14 @@ ${lengthRequirementBlock}
 
 ${chapterContextBlock}
 
+${properNameGlossaryBlock}
+
 ${briefNarrative}
 
 ## 已选上下文
 ${contextSections || "(无)"}
 ${selectedEvidenceBlock}
+${researchBlock}
 
 ## 规则栈
 - 硬护栏：${params.ruleStack.sections.hard.join("、") || "(无)"}
@@ -935,7 +1056,7 @@ ${lengthRequirementBlock}
 - 只需输出 PRE_WRITE_CHECK、CHAPTER_TITLE、CHAPTER_CONTENT 三个区块`;
   }
 
-  private buildChapterContextBlock(externalContext: string | undefined, language: "zh" | "en"): string {
+  private buildChapterContextBlock(externalContext: string | undefined, language: InkOSLanguage): string {
     const trimmed = externalContext?.trim();
     if (!trimmed) return "";
     if (language === "en") {
@@ -943,6 +1064,12 @@ ${lengthRequirementBlock}
 ${trimmed}
 
 Obey this direct instruction for the current chapter. If it specifies a chapter title, use that title exactly in CHAPTER_TITLE. Keep continuity, but do not replace this instruction with the outline fallback.`;
+    }
+    if (language === "vi") {
+      return `## Hướng dẫn chương hiện tại (ưu tiên cao nhất)
+${trimmed}
+
+Tuân thủ hướng dẫn này cho chương hiện tại. Nếu hướng dẫn chỉ định tiêu đề chương, dùng tiêu đề đó chính xác trong CHAPTER_TITLE. Giữ tính liên tục, nhưng không thay thế hướng dẫn này với phác thảo fallback.`;
     }
     return `## 本章用户指令（最高优先级）
 ${trimmed}
@@ -974,7 +1101,7 @@ ${trimmed}
     chapterIntent: string,
     contextPackage: ContextPackage,
     ruleStack: RuleStack,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): string {
     const selectedContext = renderNarrativeSelectedContext(contextPackage.selectedContext, language)
       .replace(/^### /gm, "- ");
@@ -1027,12 +1154,13 @@ ${overrides}\n`;
   private verifyPreWriteCheckAlignsWithMemo(
     preWriteCheck: string,
     chapterNumber: number,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): void {
     if (!preWriteCheck || preWriteCheck.trim().length === 0) {
       this.logWarn(language, {
         zh: `第${chapterNumber}章 PRE_WRITE_CHECK 为空，无法对齐 chapter_memo`,
         en: `Chapter ${chapterNumber} PRE_WRITE_CHECK is empty; cannot verify memo alignment`,
+        vi: `Chương ${chapterNumber} PRE_WRITE_CHECK trống; không thể xác minh căn chỉnh memo`,
       });
       return;
     }
@@ -1046,15 +1174,21 @@ ${overrides}\n`;
       this.logWarn(language, {
         zh: `第${chapterNumber}章 PRE_WRITE_CHECK 缺少 memo 章节检查：${missing.join("、")}`,
         en: `Chapter ${chapterNumber} PRE_WRITE_CHECK missing memo sections: ${missing.join(", ")}`,
+        vi: `Chương ${chapterNumber} PRE_WRITE_CHECK thiếu các phần memo: ${missing.join(", ")}`,
       });
     }
   }
 
-  private buildLengthRequirementBlock(lengthSpec: LengthSpec, language: "zh" | "en"): string {
+  private buildLengthRequirementBlock(lengthSpec: LengthSpec, language: InkOSLanguage): string {
     if (language === "en") {
       return `Requirements:
 - Target length: ${lengthSpec.target} words
 - Acceptable range: ${lengthSpec.softMin}-${lengthSpec.softMax} words`;
+    }
+    if (language === "vi") {
+      return `Yêu cầu:
+- Độ dài mục tiêu: ${lengthSpec.target} từ
+- Phạm vi chấp nhận được: ${lengthSpec.softMin}-${lengthSpec.softMax} từ`;
     }
 
     return `要求：
@@ -1094,7 +1228,7 @@ ${overrides}\n`;
     try {
       return await readFile(path, "utf-8");
     } catch {
-      return "(文件尚未创建)";
+      return "(Chưa được tạo)";
     }
   }
 
@@ -1102,7 +1236,7 @@ ${overrides}\n`;
   async saveNewTruthFiles(
     bookDir: string,
     output: WriteChapterOutput,
-    language: "zh" | "en" = "zh",
+    language: InkOSLanguage = "zh",
   ): Promise<void> {
     const storyDir = join(bookDir, "story");
     const writes: Array<Promise<void>> = [];
@@ -1206,7 +1340,7 @@ ${overrides}\n`;
   private async buildRuntimeStateArtifactsIfPresent(
     bookDir: string,
     delta: RuntimeStateDelta | undefined,
-    language: "zh" | "en",
+    language: InkOSLanguage,
     authoritativeChapterNumber?: number,
     allowReapply?: boolean,
   ): Promise<RuntimeStateArtifacts | null> {
@@ -1225,7 +1359,7 @@ ${overrides}\n`;
   private async resolveRuntimeStateArtifactsForOutput(
     bookDir: string,
     output: WriteChapterOutput,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): Promise<RuntimeStateArtifacts | null> {
     if (!output.runtimeStateDelta) return null;
     const safeDelta = this.normalizeRuntimeStateDeltaChapter(
@@ -1258,7 +1392,7 @@ ${overrides}\n`;
   private async appendChapterSummary(
     storyDir: string,
     summary: string,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): Promise<void> {
     const summaryPath = join(storyDir, "chapter_summaries.md");
     let existing = "";
@@ -1268,6 +1402,8 @@ ${overrides}\n`;
       // File doesn't exist yet — start with header
       existing = language === "en"
         ? "# Chapter Summaries\n\n| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        : language === "vi"
+        ? "# Tóm Tắt Chương\n\n| Chương | Tiêu đề | Nhân vật | Sự kiện chính | Thay đổi trạng thái | Hoạt động gợi ý | Tâm trạng | Loại chương |\n|------|------|----------|------------|------------------|---------------|--------|-----------|\n"
         : "# 章节摘要\n\n| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |\n|------|------|----------|----------|----------|----------|----------|----------|\n";
     }
 

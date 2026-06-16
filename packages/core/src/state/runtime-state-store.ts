@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { InkOSLanguage } from "../utils/language.js";
 import {
   ChapterSummariesStateSchema,
   CurrentStateStateSchema,
@@ -59,7 +60,7 @@ export async function loadRuntimeStateSnapshot(bookDir: string): Promise<Runtime
 export async function buildRuntimeStateArtifacts(params: {
   readonly bookDir: string;
   readonly delta: RuntimeStateDelta;
-  readonly language: "zh" | "en";
+  readonly language: InkOSLanguage;
   readonly allowReapply?: boolean;
 }): Promise<RuntimeStateArtifacts> {
   const snapshot = await loadRuntimeStateSnapshot(params.bookDir);

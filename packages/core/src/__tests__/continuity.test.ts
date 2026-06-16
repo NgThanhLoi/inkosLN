@@ -87,6 +87,81 @@ describe("ContinuityAuditor", () => {
     }
   });
 
+  it("asks the auditor to write Vietnamese issue text for Vietnamese books", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-auditor-vi-prompt-test-"));
+    const bookDir = join(root, "book");
+    const storyDir = join(bookDir, "story");
+    await mkdir(storyDir, { recursive: true });
+
+    await Promise.all([
+      writeFile(
+        join(bookDir, "book.json"),
+        JSON.stringify({
+          id: "vietnamese-book",
+          title: "Vietnamese Book",
+          genre: "xuanhuan",
+          platform: "other",
+          chapterWordCount: 800,
+          targetChapters: 60,
+          status: "active",
+          language: "vi",
+          createdAt: "2026-03-23T00:00:00.000Z",
+          updatedAt: "2026-03-23T00:00:00.000Z",
+        }, null, 2),
+        "utf-8",
+      ),
+      writeFile(join(storyDir, "current_state.md"), "# Current State\n\n- Bronya đang ở Xóm Ngầm.\n", "utf-8"),
+      writeFile(join(storyDir, "pending_hooks.md"), "# Pending Hooks\n", "utf-8"),
+      writeFile(join(storyDir, "chapter_summaries.md"), "# Chapter Summaries\n", "utf-8"),
+      writeFile(join(storyDir, "subplot_board.md"), "# Subplot Board\n", "utf-8"),
+      writeFile(join(storyDir, "emotional_arcs.md"), "# Emotional Arcs\n", "utf-8"),
+      writeFile(join(storyDir, "character_matrix.md"), "# Character Matrix\n", "utf-8"),
+      writeFile(join(storyDir, "volume_outline.md"), "# Volume Outline\n\n## Chapter 1\nTiếp tục tuyến Svarog.\n", "utf-8"),
+      writeFile(join(storyDir, "style_guide.md"), "# Style Guide\n\n- Viết tiếng Việt.\n", "utf-8"),
+    ]);
+
+    const auditor = new ContinuityAuditor({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          thinkingBudget: 0,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: root,
+    });
+
+    const chatSpy = vi.spyOn(ContinuityAuditor.prototype as never, "chat" as never).mockResolvedValue({
+      content: JSON.stringify({
+        passed: true,
+        issues: [],
+        summary: "ổn",
+      }),
+      usage: ZERO_USAGE,
+    });
+
+    try {
+      await auditor.auditChapter(bookDir, "Nội dung chương.", 1, "xuanhuan");
+
+      const messages = chatSpy.mock.calls[0]?.[0] as
+        | ReadonlyArray<{ content: string }>
+        | undefined;
+      const systemPrompt = messages?.[0]?.content ?? "";
+
+      expect(systemPrompt).toContain("ALL OUTPUT MUST BE IN VIETNAMESE");
+      expect(systemPrompt).toContain('"description": "mô tả vấn đề bằng tiếng Việt"');
+      expect(systemPrompt).toContain('"suggestion": "gợi ý sửa bằng tiếng Việt"');
+      expect(systemPrompt).not.toContain("输出格式必须为 JSON");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("localizes English audit prompts instead of mixing Chinese control text", async () => {
     const root = await mkdtemp(join(tmpdir(), "inkos-auditor-en-prompt-test-"));
     const bookDir = join(root, "book");

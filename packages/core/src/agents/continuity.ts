@@ -14,6 +14,7 @@ import {
   readCurrentStateWithFallback,
 } from "../utils/outline-paths.js";
 import { join } from "node:path";
+import type { InkOSLanguage } from "../utils/language.js";
 
 export interface AuditResult {
   readonly passed: boolean;
@@ -35,7 +36,7 @@ export interface AuditIssue {
   readonly suggestion: string;
 }
 
-type PromptLanguage = "zh" | "en";
+type PromptLanguage = InkOSLanguage;
 
 const DIMENSION_LABELS: Record<number, { readonly zh: string; readonly en: string }> = {
   1: { zh: "OOC检查", en: "OOC Check" },
@@ -94,6 +95,9 @@ function resolveGenreLabel(genreId: string, profileName: string, language: Promp
 }
 
 function dimensionName(id: number, language: PromptLanguage): string | undefined {
+  if (language === "vi") {
+    return DIMENSION_LABELS[id]?.en;
+  }
   return DIMENSION_LABELS[id]?.[language];
 }
 
@@ -434,6 +438,7 @@ export class ContinuityAuditor extends BaseAgent {
 
     const resolvedLanguage = bookLanguage ?? gp.language;
     const isEnglish = resolvedLanguage === "en";
+    const isVietnamese = resolvedLanguage === "vi";
     const fanficMode = hasFanficCanon ? (bookRules?.fanficMode as FanficMode | undefined) : undefined;
     const dimensions = buildDimensionList(gp, bookRules, resolvedLanguage, hasParentCanon, fanficMode);
     const dimList = dimensions
@@ -493,6 +498,46 @@ overall_score calibration:
 - 65-74: Multiple issues hurt the reading experience, pacing or continuity has gaps
 - < 65: Structural breakdown, needs major rewrite
 Score holistically — do not let a single minor issue tank the score.`
+      : isVietnamese
+        ? `You are a strict ${genreLabel} web-fiction structural editor. Audit the chapter for completion and structure, not for prose craft. ALL OUTPUT MUST BE IN VIETNAMESE.${protagonistBlock}${searchNote}
+
+## Phạm vi kiểm tra (ràng buộc cứng)
+
+Bạn chỉ kiểm tra mức độ hoàn thành và cấu trúc. Nhiệm vụ của bạn là xác định chương có thực hiện đúng kế hoạch, giữ ổn định nhân vật/dòng thời gian, và đẩy quyển truyện tiến lên hay không. Cách dùng câu, nhịp văn, hình ảnh, dấu câu, độ dài đoạn và những vấn đề bề mặt thuộc về lượt Polisher sau đó. Nếu thấy vấn đề bề mặt, chỉ ghi severity="info" để Polisher tham khảo; không tính vào passed/overall_score và không bao giờ nâng thành critical.
+
+Bạn kiểm tra các nhóm lỗi đau của độc giả: mở chương ì/nhạt, worldbuilding mơ hồ, nhân vật mâu thuẫn, POV rối, tuyến chính lệch hoặc đứng yên, xung đột yếu/thiếu payoff, pacing mất kiểm soát, nhân vật thiếu nhất quán, nhân vật phụ thành công cụ, cảm xúc/quan hệ nhảy cóc, cheat/power mất cân bằng, và thiết lập không rơi vào hành động cụ thể. Đồng thời giữ các dimension kỹ thuật bên dưới.
+
+Memo thưa là hợp lệ. Chương nghỉ nhịp/hậu hiệu/chuyển tiếp có thể chỉ có goal + khung body; đừng đánh incomplete chỉ vì memo không điền chi tiết. Chỉ xét drift so với nội dung memo thật sự yêu cầu.
+
+Nếu chapter memo, rule stack hoặc context chỉ rõ tỷ lệ giữa nhiều tuyến nội dung, kiểm tra các tuyến đó có xuất hiện thành cảnh, thoại, hành động hoặc chuyển động quan hệ thật hay không. Một tuyến chỉ được tóm tắt bằng một câu được tính là thiếu. Chỉ đánh critical khi memo yêu cầu tuyến đó phải được đẩy trong chương này.
+
+Dimension kiểm tra:
+${dimList}
+
+Output format MUST be JSON. All human-readable strings in category, description, suggestion, and summary MUST be Vietnamese:
+{
+  "passed": true/false,
+  "overall_score": 0-100,
+  "issues": [
+    {
+      "severity": "critical|warning|info",
+      "category": "tên dimension bằng tiếng Việt",
+      "description": "mô tả vấn đề bằng tiếng Việt",
+      "suggestion": "gợi ý sửa bằng tiếng Việt"
+    }
+  ],
+  "summary": "một câu kết luận kiểm tra bằng tiếng Việt"
+}
+
+passed chỉ false khi có issue severity="critical".
+
+Hiệu chuẩn overall_score:
+- 95-100: Có thể đăng ngay, không có vấn đề đáng kể
+- 85-94: Có lỗi nhỏ nhưng vẫn đọc mượt, không phá nhập tâm
+- 75-84: Có vấn đề rõ nhưng xương sống truyện vẫn giữ được, cần sửa nhưng chưa khẩn cấp
+- 65-74: Nhiều vấn đề ảnh hưởng trải nghiệm đọc, pacing hoặc continuity bị hở
+- < 65: Hỏng cấu trúc, cần rewrite lớn
+Chấm tổng thể; đừng để một lỗi nhỏ kéo sập điểm.`
       : `你是一位严格的${gp.name}网络小说结构审稿编辑。你只审完成度 + 结构，不审文笔。${protagonistBlock}${searchNote}
 
 ## 审稿边界（硬约束）
@@ -686,7 +731,9 @@ ${chapterContent}`;
             const issue = JSON.parse(match[0]);
             issues.push({
               severity: issue.severity ?? "warning",
-              category: issue.category ?? (language === "en" ? "Uncategorized" : "未分类"),
+              category: issue.category ?? (language === "en"
+                ? "Uncategorized"
+                : language === "vi" ? "Chưa phân loại" : "未分类"),
               description: issue.description ?? "",
               suggestion: issue.suggestion ?? "",
             });
@@ -706,15 +753,19 @@ ${chapterContent}`;
       passed: false,
       issues: [{
         severity: "critical",
-        category: language === "en" ? "System Error" : "系统错误",
+        category: language === "en" ? "System Error" : language === "vi" ? "Lỗi hệ thống" : "系统错误",
         description: language === "en"
           ? "Audit output format was invalid and could not be parsed as JSON."
+          : language === "vi"
+            ? "Định dạng output kiểm tra không hợp lệ và không thể parse thành JSON."
           : "审稿输出格式异常，无法解析为 JSON",
         suggestion: language === "en"
           ? "The model may not support reliable structured output. Try a stronger model or inspect the API response format."
+          : language === "vi"
+            ? "Model có thể không hỗ trợ output có cấu trúc ổn định. Hãy thử model mạnh hơn hoặc kiểm tra định dạng response API."
           : "可能是模型不支持结构化输出。尝试换一个更大的模型，或检查 API 返回格式。",
       }],
-      summary: language === "en" ? "Audit output parsing failed" : "审稿输出解析失败",
+      summary: language === "en" ? "Audit output parsing failed" : language === "vi" ? "Parse output kiểm tra thất bại" : "审稿输出解析失败",
     };
   }
 

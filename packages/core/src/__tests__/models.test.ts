@@ -9,6 +9,7 @@ import {
 } from "../models/book.js";
 import { ChapterMetaSchema, ChapterStatusSchema } from "../models/chapter.js";
 import {
+  AgentLLMOverrideSchema,
   ProjectConfigSchema,
   LLMConfigSchema,
   NotifyChannelSchema,
@@ -388,10 +389,47 @@ describe("ProjectConfigSchema", () => {
     ).toThrow();
   });
 
+  it("accepts model overrides for researcher and other new agents", () => {
+    const result = ProjectConfigSchema.parse({
+      name: "Demo",
+      version: "0.1.0",
+      llm: validProject.llm,
+      modelOverrides: {
+        researcher: "vx/gemini-3.1-pro-preview",
+        planner: "vertex/gemini-3.5-flash",
+        "state-validator": "vertex/gemini-3.5-flash",
+        "short-writer": "Kimi-2.6-CB",
+      },
+    });
+    expect(result.modelOverrides?.researcher).toBe("vx/gemini-3.1-pro-preview");
+    expect(result.modelOverrides?.planner).toBe("vertex/gemini-3.5-flash");
+  });
+
   it("rejects missing LLM config", () => {
     expect(() =>
       ProjectConfigSchema.parse({ name: "p", version: "0.1.0" }),
     ).toThrow();
+  });
+});
+
+describe("AgentLLMOverrideSchema", () => {
+  it("accepts Opus writer controls", () => {
+    const parsed = AgentLLMOverrideSchema.parse({
+      provider: "custom",
+      baseUrl: "https://example.com/v1",
+      model: "claude-opus-4-6",
+      instructionMode: "all-user",
+      stream: false,
+      maxTokens: 2800,
+      writingMode: "opus",
+    });
+
+    expect(parsed.maxTokens).toBe(2800);
+    expect(parsed.writingMode).toBe("opus");
+  });
+
+  it("rejects unknown writing modes", () => {
+    expect(() => AgentLLMOverrideSchema.parse({ model: "x", writingMode: "turbo" })).toThrow();
   });
 });
 

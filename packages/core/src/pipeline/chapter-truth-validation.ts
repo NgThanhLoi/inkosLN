@@ -6,6 +6,7 @@ import type { ContextPackage, RuleStack } from "../models/input-governance.js";
 import type { Logger } from "../utils/logger.js";
 import type { LengthLanguage } from "../utils/length-metrics.js";
 import {
+  buildStateDegradedIssues,
   buildStateDegradedPersistenceOutput,
   retrySettlementAfterValidationFailure,
 } from "./chapter-state-recovery.js";
@@ -32,7 +33,8 @@ export async function validateChapterTruthPersistence(params: {
     ruleStack: RuleStack;
   };
   readonly language: LengthLanguage;
-  readonly logWarn: (message: { zh: string; en: string }) => void;
+  readonly retryOnFailure?: boolean;
+  readonly logWarn: (message: { zh: string; en: string; vi?: string }) => void;
   readonly logger?: Pick<Logger, "warn">;
 }): Promise<{
   readonly validation: ValidationResult;
@@ -92,13 +94,27 @@ export async function validateChapterTruthPersistence(params: {
     params.logWarn({
       zh: `状态校验：第${params.chapterNumber}章发现 ${validation.warnings.length} 条警告`,
       en: `State validation: ${validation.warnings.length} warning(s) for chapter ${params.chapterNumber}`,
+      vi: `Kiểm tra trạng thái: ${validation.warnings.length} cảnh báo cho chương ${params.chapterNumber}`,
     });
     for (const warning of validation.warnings) {
       params.logger?.warn(`  [${warning.category}] ${warning.description}`);
     }
   }
 
-  if (!validation.passed) {
+  if (!validation.passed && params.retryOnFailure === false) {
+    chapterStatus = "state-degraded";
+    degradedIssues = buildStateDegradedIssues(validation.warnings, params.language);
+    persistenceOutput = buildStateDegradedPersistenceOutput({
+      output: persistenceOutput,
+      oldState: params.previousTruth.oldState,
+      oldHooks: params.previousTruth.oldHooks,
+      oldLedger: params.previousTruth.oldLedger,
+    });
+    auditResult = {
+      ...auditResult,
+      issues: [...auditResult.issues, ...degradedIssues],
+    };
+  } else if (!validation.passed) {
     const recovery = await retrySettlementAfterValidationFailure({
       writer: params.writer,
       validator: params.validator,

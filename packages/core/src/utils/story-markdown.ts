@@ -1,4 +1,5 @@
 import type { Fact, StoredHook, StoredSummary } from "../state/memory-db.js";
+import type { InkOSLanguage } from "./language.js";
 import {
   localizeHookPayoffTiming,
   normalizeHookPayoffTiming,
@@ -7,7 +8,7 @@ import {
 
 export function renderSummarySnapshot(
   summaries: ReadonlyArray<StoredSummary>,
-  language: "zh" | "en" = "zh",
+  language: InkOSLanguage = "zh",
 ): string {
   if (summaries.length === 0) return "- none";
 
@@ -38,7 +39,7 @@ export function renderSummarySnapshot(
 
 export function renderHookSnapshot(
   hooks: ReadonlyArray<StoredHook>,
-  language: "zh" | "en" = "zh",
+  language: InkOSLanguage = "zh",
 ): string {
   if (hooks.length === 0) return "- none";
 
@@ -77,18 +78,18 @@ function renderHalfLifeCell(value: number | undefined): string {
   return String(Math.trunc(value));
 }
 
-function renderPromotedCell(value: boolean | undefined, language: "zh" | "en"): string {
+function renderPromotedCell(value: boolean | undefined, language: InkOSLanguage): string {
   if (value === undefined) return "";
   if (language === "en") return value ? "true" : "false";
   return value ? "是" : "否";
 }
 
-function renderDependsOnCell(ids: ReadonlyArray<string>, language: "zh" | "en"): string {
+function renderDependsOnCell(ids: ReadonlyArray<string>, language: InkOSLanguage): string {
   if (ids.length === 0) return language === "en" ? "none" : "无";
   return `[${ids.join(", ")}]`;
 }
 
-function renderCoreHookCell(isCore: boolean, language: "zh" | "en"): string {
+function renderCoreHookCell(isCore: boolean, language: InkOSLanguage): string {
   if (language === "en") return isCore ? "true" : "false";
   return isCore ? "是" : "否";
 }

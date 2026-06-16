@@ -1,12 +1,13 @@
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { BookRules } from "../models/book-rules.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 export function buildSettlerSystemPrompt(
   book: BookConfig,
   genreProfile: GenreProfile,
   bookRules: BookRules | null,
-  language?: "zh" | "en",
+  language?: InkOSLanguage,
 ): string {
   const resolvedLang = language ?? genreProfile.language;
   const isEnglish = resolvedLang === "en";

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { BaseAgent } from "./base.js";
 import type { BookConfig } from "../models/book.js";
 import { readBookRules as readAuthoritativeBookRules } from "./rules-reader.js";
+import type { InkOSLanguage } from "../utils/language.js";
 import {
   ChapterIntentSchema,
   type ChapterIntent,
@@ -42,6 +43,7 @@ export interface PlanChapterInput {
   readonly bookDir: string;
   readonly chapterNumber: number;
   readonly externalContext?: string;
+  readonly researchContext?: string;
 }
 
 export interface PlanChapterOutput {
@@ -140,6 +142,7 @@ export class PlannerAgent extends BaseAgent {
       previousEndingExcerpt: seedMaterials.previousEndingExcerpt,
       brief: seedMaterials.brief,
       chapterContext: input.externalContext,
+      researchContext: input.researchContext,
       recyclableHooks: memorySelection.recyclableHooks,
       // Phase hotfix 4: thread book language through so the planner uses
       // English prompts (system + user template + golden opening guidance)
@@ -187,8 +190,9 @@ export class PlannerAgent extends BaseAgent {
     readonly previousEndingExcerpt?: string;
     readonly brief?: string;
     readonly chapterContext?: string;
+    readonly researchContext?: string;
     readonly recyclableHooks?: ReadonlyArray<StoredHook>;
-    readonly language?: "zh" | "en";
+    readonly language?: InkOSLanguage;
   }): Promise<ChapterMemo> {
     const [characterMatrix, subplotBoard, emotionalArcs, pendingHooks, bookRulesRaw] = await Promise.all([
       readCharacterMatrix(input.storyDir),
@@ -232,6 +236,7 @@ export class PlannerAgent extends BaseAgent {
       bookRulesRelevant: bookRulesRaw.trim().length > 0 ? bookRulesRaw.trim() : noBookRules,
       brief: input.brief ?? "",
       chapterContext: input.chapterContext ?? "",
+      researchContext: input.researchContext,
       language,
     });
 
@@ -410,7 +415,7 @@ export class PlannerAgent extends BaseAgent {
     return this.extractListItems(focusSection, limit);
   }
 
-  private renderHookBudget(activeCount: number, language: "zh" | "en"): string {
+  private renderHookBudget(activeCount: number, language: InkOSLanguage): string {
     const cap = 12;
     if (activeCount < 10) {
       return language === "en"
@@ -701,7 +706,7 @@ export class PlannerAgent extends BaseAgent {
   private renderIntentMarkdown(
     intent: ChapterIntent,
     memo: ChapterMemo,
-    language: "zh" | "en",
+    language: InkOSLanguage,
     pendingHooks: string,
     chapterSummaries: string,
     activeHookCount: number,

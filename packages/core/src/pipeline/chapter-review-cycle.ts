@@ -39,7 +39,15 @@ interface ReviewSnapshot {
   readonly wordCount: number;
   readonly auditResult: AuditResult;
   readonly score: number;
+  readonly auditUnavailable: boolean;
 }
+
+const describeAuditError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
 
 export async function runChapterReviewCycle(params: {
   readonly book: Pick<{ genre: string }, "genre">;
@@ -102,8 +110,8 @@ export async function runChapterReviewCycle(params: {
   /** Re-run deterministic post-write checks (chapter-ref, paragraph shape, etc.) on any content. */
   readonly runPostWriteChecks?: (content: string) => ReadonlyArray<AuditIssue>;
   readonly maxReviewIterations?: number;
-  readonly logWarn: (message: { zh: string; en: string }) => void;
-  readonly logStage: (message: { zh: string; en: string }) => void;
+  readonly logWarn: (message: { zh: string; en: string; vi?: string }) => void;
+  readonly logStage: (message: { zh: string; en: string; vi?: string }) => void;
 }): Promise<ChapterReviewCycleResult> {
   let totalUsage = params.initialUsage;
   let normalizeApplied = false;
@@ -137,10 +145,26 @@ export async function runChapterReviewCycle(params: {
   };
 
   const normalizedBeforeAudit = await normalizeIfHardDrift(finalContent);
-  finalContent = params.normalizePostWriteSurface?.(normalizedBeforeAudit.content) ?? normalizedBeforeAudit.content;
-  finalWordCount = countChapterLength(finalContent, params.lengthSpec.countingMode);
-  normalizeApplied = normalizeApplied || normalizedBeforeAudit.applied;
-  params.assertChapterContentNotEmpty(finalContent, "draft generation");
+  const normalizedCandidate = params.normalizePostWriteSurface?.(normalizedBeforeAudit.content) ?? normalizedBeforeAudit.content;
+  try {
+    params.assertChapterContentNotEmpty(normalizedCandidate, "draft generation");
+    finalContent = normalizedCandidate;
+    finalWordCount = countChapterLength(finalContent, params.lengthSpec.countingMode);
+    normalizeApplied = normalizeApplied || normalizedBeforeAudit.applied;
+  } catch (error) {
+    if (!normalizedBeforeAudit.applied) {
+      throw error;
+    }
+    const fallbackContent = params.normalizePostWriteSurface?.(params.initialOutput.content) ?? params.initialOutput.content;
+    params.assertChapterContentNotEmpty(fallbackContent, "draft generation");
+    params.logWarn({
+      zh: `字数归一化输出无效，保留原始草稿：${describeAuditError(error)}`,
+      en: `length normalizer produced invalid output; keeping original draft: ${describeAuditError(error)}`,
+      vi: `bản điều chỉnh độ dài không hợp lệ; giữ bản thảo gốc: ${describeAuditError(error)}`,
+    });
+    finalContent = fallbackContent;
+    finalWordCount = countChapterLength(finalContent, params.lengthSpec.countingMode);
+  }
 
   // ---------------------------------------------------------------------------
   // Helper: assess a chapter (audit + deterministic checks + length + score)
@@ -148,17 +172,40 @@ export async function runChapterReviewCycle(params: {
   const assess = async (
     content: string,
     options?: { temperature?: number },
-  ): Promise<{ auditResult: AuditResult; score: number; lengthInRange: boolean }> => {
-    const llmAudit = await params.auditor.auditChapter(
-      params.bookDir,
-      content,
-      params.chapterNumber,
-      params.book.genre,
-      params.reducedControlInput
-        ? { ...params.reducedControlInput, ...(options ?? {}) }
-        : options,
-    );
-    totalUsage = params.addUsage(totalUsage, llmAudit.tokenUsage);
+  ): Promise<{ auditResult: AuditResult; score: number; lengthInRange: boolean; auditUnavailable: boolean }> => {
+    let auditUnavailable = false;
+    let llmAudit: AuditResult;
+    try {
+      llmAudit = await params.auditor.auditChapter(
+        params.bookDir,
+        content,
+        params.chapterNumber,
+        params.book.genre,
+        params.reducedControlInput
+          ? { ...params.reducedControlInput, ...(options ?? {}) }
+          : options,
+      );
+      totalUsage = params.addUsage(totalUsage, llmAudit.tokenUsage);
+    } catch (error) {
+      auditUnavailable = true;
+      const description = `LLM audit unavailable: ${describeAuditError(error)}`;
+      params.logWarn({
+        zh: description,
+        en: description,
+        vi: description,
+      });
+      llmAudit = {
+        passed: false,
+        issues: [{
+          severity: "warning",
+          category: "audit-unavailable",
+          description,
+          suggestion: "Persist the generated chapter for human review, then rerun audit or repair if needed.",
+        }],
+        summary: description,
+        overallScore: 0,
+      };
+    }
     const aiTellsResult = params.analyzeAITells(content);
     const sensitiveResult = params.analyzeSensitiveWords(content);
     const hasBlockedWords = sensitiveResult.found.some((item) => item.severity === "block");
@@ -181,31 +228,30 @@ export async function runChapterReviewCycle(params: {
     // Length is NOT added to reviser issues — normalize handles it as a dedicated step.
     // lengthInRange is only used in isPassed() as a hard gate.
 
-    const hasPostWriteCritical = postWriteIssues.some((i) => i.severity === "critical");
+    const hasCriticalIssue = allIssues.some((i) => i.severity === "critical");
+    const score = llmAudit.overallScore ?? 0;
     const auditResult: AuditResult = {
-      passed: (hasBlockedWords || hasPostWriteCritical) ? false : llmAudit.passed,
+      passed: (hasBlockedWords || hasCriticalIssue) ? false : (llmAudit.passed || score >= PASS_SCORE_THRESHOLD),
       issues: allIssues,
       summary: llmAudit.summary,
       overallScore: llmAudit.overallScore,
     };
 
-    const score = llmAudit.overallScore ?? 0;
-
-    return { auditResult, score, lengthInRange };
+    return { auditResult, score, lengthInRange, auditUnavailable };
   };
 
   const isPassed = (assessment: { auditResult: AuditResult; score: number; lengthInRange: boolean }): boolean =>
     assessment.auditResult.passed && assessment.score >= PASS_SCORE_THRESHOLD && assessment.lengthInRange;
+
   const criticalIssueCount = (assessment: { auditResult: AuditResult }): number =>
     assessment.auditResult.issues.filter((issue) => issue.severity === "critical").length;
-
 
   // ---------------------------------------------------------------------------
   // Scoring loop: assess → revise → assess. Default is one automatic repair pass;
   // projects can raise it when they accept slower but more persistent repair.
   // ---------------------------------------------------------------------------
   const maxReviewIterations = Math.max(0, Math.floor(params.maxReviewIterations ?? DEFAULT_MAX_REVIEW_ITERATIONS));
-  params.logStage({ zh: "审计草稿", en: "auditing draft" });
+  params.logStage({ zh: "审计草稿", en: "auditing draft", vi: "đang kiểm tra bản thảo" });
   const initial = await assess(finalContent);
 
   const snapshots: ReviewSnapshot[] = [{
@@ -213,16 +259,18 @@ export async function runChapterReviewCycle(params: {
     wordCount: finalWordCount,
     auditResult: initial.auditResult,
     score: initial.score,
+    auditUnavailable: initial.auditUnavailable,
   }];
 
   let currentAudit = initial;
   let postReviseCount = 0;
 
-  if (!isPassed(initial)) {
+  if (!isPassed(initial) && !initial.auditUnavailable) {
     for (let iteration = 0; iteration < maxReviewIterations; iteration++) {
       params.logStage({
         zh: `修复轮次 ${iteration + 1}/${maxReviewIterations}（当前 ${currentAudit.score} 分）`,
         en: `repair iteration ${iteration + 1}/${maxReviewIterations} (current score: ${currentAudit.score})`,
+        vi: `lần sửa ${iteration + 1}/${maxReviewIterations} (điểm hiện tại: ${currentAudit.score})`,
       });
 
       const reviser = params.createReviser();
@@ -241,6 +289,7 @@ export async function runChapterReviewCycle(params: {
         params.logWarn({
           zh: `修复轮次 ${iteration + 1} 未产出新内容，退出循环`,
           en: `repair iteration ${iteration + 1} produced no new content, exiting loop`,
+          vi: `lần sửa ${iteration + 1} không tạo nội dung mới, thoát vòng lặp`,
         });
         break;
       }
@@ -259,13 +308,28 @@ export async function runChapterReviewCycle(params: {
         wordCount: revisedWordCount,
         auditResult: nextAssessment.auditResult,
         score: nextAssessment.score,
+        auditUnavailable: nextAssessment.auditUnavailable,
       });
+
+      if (nextAssessment.auditUnavailable) {
+        params.logWarn({
+          zh: `修复后审计不可用，保留当前内容并退出循环`,
+          en: `audit unavailable after repair, keeping current content and exiting loop`,
+          vi: `audit không khả dụng sau khi sửa, giữ nội dung hiện tại và thoát vòng lặp`,
+        });
+        finalContent = revisedContent;
+        finalWordCount = revisedWordCount;
+        postReviseCount = revisedWordCount;
+        currentAudit = nextAssessment;
+        break;
+      }
 
       // Check if passed
       if (isPassed(nextAssessment)) {
         params.logStage({
           zh: `修复后达到通过线（${nextAssessment.score} 分），退出循环`,
           en: `repair reached pass threshold (${nextAssessment.score}), exiting loop`,
+          vi: `sửa đạt ngưỡng đỗ (${nextAssessment.score}), thoát vòng lặp`,
         });
         finalContent = revisedContent;
         finalWordCount = revisedWordCount;
@@ -289,6 +353,7 @@ export async function runChapterReviewCycle(params: {
         params.logWarn({
           zh: `修复轮次 ${iteration + 1} 未净提升（${currentAudit.score} → ${nextAssessment.score}），退出循环`,
           en: `repair iteration ${iteration + 1} no net improvement (${currentAudit.score} → ${nextAssessment.score}), exiting loop`,
+          vi: `lần sửa ${iteration + 1} không cải thiện (${currentAudit.score} → ${nextAssessment.score}), thoát vòng lặp`,
         });
         break;
       }
@@ -308,6 +373,7 @@ export async function runChapterReviewCycle(params: {
     params.logWarn({
       zh: `回退到最高分版本（${bestSnapshot.score} 分 vs 当前 ${currentAudit.score} 分）`,
       en: `rolling back to highest-scoring version (${bestSnapshot.score} vs current ${currentAudit.score})`,
+      vi: `quay lại phiên bản điểm cao nhất (${bestSnapshot.score} vs hiện tại ${currentAudit.score})`,
     });
     finalContent = bestSnapshot.content;
     finalWordCount = bestSnapshot.wordCount;
@@ -315,6 +381,7 @@ export async function runChapterReviewCycle(params: {
       auditResult: bestSnapshot.auditResult,
       score: bestSnapshot.score,
       lengthInRange: !isOutsideHardRange(bestSnapshot.wordCount, params.lengthSpec),
+      auditUnavailable: bestSnapshot.auditUnavailable,
     };
   }
 

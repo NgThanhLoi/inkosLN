@@ -345,6 +345,7 @@ describe("PipelineRunner", () => {
           thinkingBudget: 0,
           apiFormat: "chat",
           stream: false,
+          instructionMode: "system",
         },
         modelOverrides: {
           writer: {
@@ -2185,6 +2186,69 @@ describe("PipelineRunner", () => {
     }
   });
 
+  it("keeps the original draft when normalization makes hard-range fit worse", async () => {
+    const { root, runner, bookId } = await createRunnerFixture();
+    const originalDraft = "原文。".repeat(50); // 150 chars, outside hardMin=160 by 10
+    const normalizedDraft = "压缩过头。".repeat(20); // 100 chars, worse by 60
+
+    vi.spyOn(WriterAgent.prototype, "writeChapter").mockResolvedValue(
+      createWriterOutput({
+        chapterNumber: 1,
+        content: originalDraft,
+        wordCount: originalDraft.length,
+      }),
+    );
+    vi.mocked(LengthNormalizerAgent.prototype.normalizeChapter).mockResolvedValue({
+      normalizedContent: normalizedDraft,
+      finalCount: normalizedDraft.length,
+      applied: true,
+      mode: "compress",
+      tokenUsage: ZERO_USAGE,
+    });
+    const auditChapter = vi.spyOn(ContinuityAuditor.prototype, "auditChapter").mockResolvedValue(
+      createAuditResult({ passed: true, issues: [], summary: "clean" }),
+    );
+
+    try {
+      await runner.writeNextChapter(bookId, 220);
+      expect(LengthNormalizerAgent.prototype.normalizeChapter).toHaveBeenCalled();
+      expect(auditChapter.mock.calls[0]?.[1]).toBe(originalDraft);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects obviously truncated chapter endings before persistence", async () => {
+    const { root, runner, state, bookId } = await createRunnerFixture();
+    const storyDir = join(state.bookDir(bookId), "story");
+    const beforeState = "stable state";
+    await Promise.all([
+      writeFile(join(storyDir, "current_state.md"), beforeState, "utf-8"),
+      writeFile(join(storyDir, "pending_hooks.md"), "stable hooks", "utf-8"),
+    ]);
+
+    vi.spyOn(WriterAgent.prototype, "writeChapter").mockResolvedValue(
+      createWriterOutput({
+        content: '"Gepard ơi," March 7',
+        wordCount: countChapterLength('"Gepard ơi," March 7', "vi_words"),
+      }),
+    );
+    vi.spyOn(ContinuityAuditor.prototype, "auditChapter").mockResolvedValue(
+      createAuditResult({ passed: true, issues: [], summary: "clean" }),
+    );
+    vi.spyOn(ChapterAnalyzerAgent.prototype, "analyzeChapter").mockResolvedValue(
+      createAnalyzedOutput({
+        content: '"Gepard ơi," March 7',
+        wordCount: countChapterLength('"Gepard ơi," March 7', "vi_words"),
+      }),
+    );
+
+    await expect(runner.writeNextChapter(bookId, 1200)).rejects.toThrow(/truncated chapter content/i);
+    await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toBe(beforeState);
+
+    await rm(root, { recursive: true, force: true });
+  });
+
   it("keeps the last actionable audit issues when re-audit returns failed with no issues", async () => {
     const { root, runner, state, bookId } = await createRunnerFixture({
       inputGovernanceMode: "legacy",
@@ -2770,7 +2834,7 @@ describe("PipelineRunner", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("retries settlement after state contradictions without rewriting the chapter body", async () => {
+  it("persists state-degraded immediately after state contradictions without retrying settlement", async () => {
     const { root, runner, state, bookId } = await createRunnerFixture({
       inputGovernanceMode: "legacy",
     });
@@ -2827,22 +2891,16 @@ describe("PipelineRunner", () => {
 
     const result = await runner.writeNextChapter(bookId);
 
-    expect(result.status).toBe("ready-for-review");
+    expect(result.status).toBe("state-degraded");
     expect(writeSpy).toHaveBeenCalledTimes(1);
-    expect(settleSpy).toHaveBeenCalledTimes(1);
-    expect(settleSpy).toHaveBeenCalledWith(expect.objectContaining({
-      chapterNumber: 1,
-      title: "Test Chapter",
-      content: "Healthy chapter body with the copper token in his coat.",
-      validationFeedback: expect.stringContaining("怀里的铜牌"),
-    }));
-    await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toBe("fixed state");
-    await expect(readFile(join(storyDir, "pending_hooks.md"), "utf-8")).resolves.toBe("fixed hooks");
+    expect(settleSpy).not.toHaveBeenCalled();
+    await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toBe("stable state");
+    await expect(readFile(join(storyDir, "pending_hooks.md"), "utf-8")).resolves.toBe("stable hooks");
 
     await rm(root, { recursive: true, force: true });
   });
 
-  it("persists a state-degraded chapter without advancing truth files when settlement retry still contradicts the body", async () => {
+  it("persists a state-degraded chapter without advancing truth files when state validation fails", async () => {
     const { root, runner, state, bookId } = await createRunnerFixture({
       inputGovernanceMode: "legacy",
     });
@@ -2907,7 +2965,7 @@ describe("PipelineRunner", () => {
 
     expect(result.status).toBe("state-degraded");
     expect(savedIndex[0]?.status).toBe("state-degraded");
-    expect(savedIndex[0]?.auditIssues).toContain("[warning] 重试后仍然把铜牌写没了。");
+    expect(savedIndex[0]?.auditIssues).toContain("[warning] settler 把铜牌写没了，但正文仍然明确带在身上。");
     await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toBe("stable state");
     await expect(readFile(join(storyDir, "pending_hooks.md"), "utf-8")).resolves.toBe("stable hooks");
     await expect(readFile(join(storyDir, "particle_ledger.md"), "utf-8")).resolves.toBe("stable ledger");

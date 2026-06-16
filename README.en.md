@@ -123,6 +123,11 @@ inkos config show-models        # View current routing
 
 Agents without explicit overrides fall back to the global model.
 
+Per-agent instruction placement and the `writer-state` route are documented in
+[`docs/model-routing.md`](docs/model-routing.md). Use these when testing
+providers that handle system messages differently, or when separating creative
+chapter prose from state persistence.
+
 ### v1.2 Update
 
 **Unified Interaction Kernel + TUI Dashboard + Studio Assistant**

@@ -8,6 +8,7 @@
 import { analyzeChapterCadence } from "../utils/chapter-cadence.js";
 import type { BookRules } from "../models/book-rules.js";
 import type { GenreProfile } from "../models/genre-profile.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 export interface PostWriteViolation {
   readonly rule: string;
@@ -16,9 +17,13 @@ export interface PostWriteViolation {
   readonly suggestion: string;
 }
 
+export interface PostWriteValidationOptions {
+  readonly forbiddenProperNameVariants?: ReadonlyArray<string>;
+}
+
 export function normalizePostWriteSurface(
   content: string,
-  languageOverride?: "zh" | "en",
+  languageOverride?: InkOSLanguage,
 ): string {
   let normalized = stripPostWriteMetaLines(content);
   if (languageOverride !== "en") {
@@ -82,34 +87,57 @@ export function validatePostWrite(
   content: string,
   genreProfile: GenreProfile,
   bookRules: BookRules | null,
-  languageOverride?: "zh" | "en",
+  languageOverride?: InkOSLanguage,
+  options?: PostWriteValidationOptions,
 ): ReadonlyArray<PostWriteViolation> {
   const violations: PostWriteViolation[] = [];
+  const resolvedLanguage = languageOverride ?? genreProfile.language;
+  const isVietnamese = resolvedLanguage === "vi";
+
+  const forbiddenProperNameHits = findForbiddenProperNameVariants(
+    content,
+    options?.forbiddenProperNameVariants ?? [],
+  );
+  if (forbiddenProperNameHits.length > 0) {
+    violations.push({
+      rule: "proper-name-transliteration",
+      severity: "error",
+      description: isVietnamese
+        ? `Tên riêng dùng biến thể phiên âm bị cấm: ${forbiddenProperNameHits.map(v => `"${v}"`).join(", ")}`
+        : `Forbidden transliterated proper-name variants appear in prose: ${forbiddenProperNameHits.map(v => `"${v}"`).join(", ")}`,
+      suggestion: isVietnamese
+        ? "Thay bằng tên chuẩn trong Bảng Tên Riêng Chuẩn; không phiên âm lại tên canon."
+        : "Replace with the canonical proper name from the glossary; do not reuse transliterated variants.",
+    });
+  }
 
   // Skip Chinese-specific rules for English content
-  const isEnglish = (languageOverride ?? genreProfile.language) === "en";
+  const isEnglish = resolvedLanguage === "en";
   if (isEnglish) {
     // For English, only run book-specific prohibitions and paragraph length check
-    return validatePostWriteEnglish(content, genreProfile, bookRules);
+    return [
+      ...violations,
+      ...validatePostWriteEnglish(content, genreProfile, bookRules),
+    ];
   }
 
   // 1. 硬性禁令: "不是…而是…" 句式
   if (/不是[^，。！？\n]{0,30}[，,]?\s*而是/.test(content)) {
     violations.push({
-      rule: "禁止句式",
+      rule: isVietnamese ? "cấm cấu trúc câu" : "禁止句式",
       severity: "error",
-      description: "出现了「不是……而是……」句式",
-      suggestion: "改用直述句",
+      description: isVietnamese ? "Xuất hiện cấu trúc 'không phải... mà là...' bị cấm" : "出现了「不是……而是……」句式",
+      suggestion: isVietnamese ? "Đổi sang câu tường thuật trực tiếp hơn." : "改用直述句",
     });
   }
 
   // 2. 硬性禁令: 破折号
   if (content.includes("——")) {
     violations.push({
-      rule: "禁止破折号",
+      rule: isVietnamese ? "cấm gạch ngang dài" : "禁止破折号",
       severity: "error",
-      description: "出现了破折号「——」",
-      suggestion: "用逗号或句号断句",
+      description: isVietnamese ? "Xuất hiện dấu gạch ngang dài '——' trong chính văn" : "出现了破折号「——」",
+      suggestion: isVietnamese ? "Dùng dấu phẩy hoặc dấu chấm để ngắt câu." : "用逗号或句号断句",
     });
   }
 
@@ -130,10 +158,12 @@ export function validatePostWrite(
       .map(([w, c]) => `"${w}"×${c}`)
       .join("、");
     violations.push({
-      rule: "转折词密度",
+      rule: isVietnamese ? "mật độ từ chuyển/giật mình" : "转折词密度",
       severity: "warning",
-      description: `转折/惊讶标记词共${totalMarkerCount}次（上限${markerLimit}次/${content.length}字），明细：${detail}`,
-      suggestion: "改用具体动作或感官描写传递突然性",
+      description: isVietnamese
+        ? `Từ đánh dấu chuyển/giật mình xuất hiện ${totalMarkerCount} lần (giới hạn ${markerLimit} lần/${content.length} ký tự), chi tiết: ${detail}`
+        : `转折/惊讶标记词共${totalMarkerCount}次（上限${markerLimit}次/${content.length}字），明细：${detail}`,
+      suggestion: isVietnamese ? "Dùng hành động cụ thể hoặc cảm giác để truyền độ đột ngột." : "改用具体动作或感官描写传递突然性",
     });
   }
 
@@ -147,10 +177,10 @@ export function validatePostWrite(
     const count = matches?.length ?? 0;
     if (count > 1) {
       violations.push({
-        rule: "高疲劳词",
+        rule: isVietnamese ? "từ mệt mỏi cao" : "高疲劳词",
         severity: "warning",
-        description: `高疲劳词"${word}"出现${count}次（上限1次/章）`,
-        suggestion: `替换多余的"${word}"为同义但不同形式的表达`,
+        description: isVietnamese ? `Từ dễ gây mệt "${word}" xuất hiện ${count} lần (giới hạn 1 lần/chương)` : `高疲劳词"${word}"出现${count}次（上限1次/章）`,
+        suggestion: isVietnamese ? `Thay các lần thừa của "${word}" bằng cách diễn đạt khác.` : `替换多余的"${word}"为同义但不同形式的表达`,
       });
     }
   }
@@ -160,10 +190,10 @@ export function validatePostWrite(
     const match = content.match(pattern);
     if (match) {
       violations.push({
-        rule: "元叙事",
+        rule: isVietnamese ? "meta narrative" : "元叙事",
         severity: "warning",
-        description: `出现编剧旁白式表述："${match[0]}"`,
-        suggestion: "删除元叙事，让剧情自然展开",
+        description: isVietnamese ? `Xuất hiện cách diễn đạt kiểu lời bình biên kịch: "${match[0]}"` : `出现编剧旁白式表述："${match[0]}"`,
+        suggestion: isVietnamese ? "Xóa meta narrative và để tình tiết tự diễn ra." : "删除元叙事，让剧情自然展开",
       });
       break; // 报一次即可
     }
@@ -178,10 +208,10 @@ export function validatePostWrite(
   }
   if (foundTerms.length > 0) {
     violations.push({
-      rule: "报告术语",
+      rule: isVietnamese ? "thuật ngữ báo cáo" : "报告术语",
       severity: "error",
-      description: `正文中出现分析报告术语：${foundTerms.map(t => `"${t}"`).join("、")}`,
-      suggestion: "这些术语只能用于 PRE_WRITE_CHECK 内部推理，正文中用口语化表达替代",
+      description: isVietnamese ? `Chính văn xuất hiện thuật ngữ kiểu báo cáo phân tích: ${foundTerms.map(t => `"${t}"`).join(", ")}` : `正文中出现分析报告术语：${foundTerms.map(t => `"${t}"`).join("、")}`,
+      suggestion: isVietnamese ? "Các thuật ngữ này chỉ dùng trong PRE_WRITE_CHECK; trong chính văn hãy đổi sang cách nói tự nhiên." : "这些术语只能用于 PRE_WRITE_CHECK 内部推理，正文中用口语化表达替代",
     });
   }
 
@@ -191,13 +221,17 @@ export function validatePostWrite(
   if (chapterRefs && chapterRefs.length > 0) {
     const unique = [...new Set(chapterRefs)];
     violations.push({
-      rule: isEnglish ? "chapter-number-reference" : "章节号指称",
+      rule: isEnglish ? "chapter-number-reference" : isVietnamese ? "nhắc số chương" : "章节号指称",
       severity: "error",
       description: isEnglish
         ? `Chapter text contains explicit chapter number references: ${unique.map(r => `"${r}"`).join(", ")}. Characters do not know they are in a numbered chapter.`
+        : isVietnamese
+          ? `Chính văn nhắc số chương trực tiếp: ${unique.map(r => `"${r}"`).join(", ")}. Nhân vật không biết mình đang ở chương số mấy.`
         : `正文中出现了章节号指称：${unique.map(r => `"${r}"`).join("、")}。角色不知道自己在第几章。`,
       suggestion: isEnglish
         ? "Replace with natural references: 'that night', 'when the warehouse burned', 'the incident at the dock'"
+        : isVietnamese
+          ? "Đổi sang cách nhắc tự nhiên như 'đêm đó', 'lần ở phòng khám', 'sự cố trong hầm mỏ'."
         : '改成自然表达："那天晚上"、"仓库出事那次"、"码头上的事"',
     });
   }
@@ -211,10 +245,10 @@ export function validatePostWrite(
   }
   if (foundSermons.length > 0) {
     violations.push({
-      rule: "作者说教",
+      rule: isVietnamese ? "từ thuyết giáo" : "作者说教",
       severity: "warning",
-      description: `出现说教词：${foundSermons.map(w => `"${w}"`).join("、")}`,
-      suggestion: "删除说教词，让读者自己从情节中判断",
+      description: isVietnamese ? `Xuất hiện từ mang tính thuyết giáo: ${foundSermons.map(w => `"${w}"`).join(", ")}` : `出现说教词：${foundSermons.map(w => `"${w}"`).join("、")}`,
+      suggestion: isVietnamese ? "Xóa từ thuyết giáo, để độc giả tự rút ra từ tình tiết." : "删除说教词，让读者自己从情节中判断",
     });
   }
 
@@ -223,10 +257,10 @@ export function validatePostWrite(
     const match = content.match(pattern);
     if (match) {
       violations.push({
-        rule: "集体反应",
+        rule: isVietnamese ? "phản ứng tập thể" : "集体反应",
         severity: "warning",
-        description: `出现集体反应套话："${match[0]}"`,
-        suggestion: "改写成1-2个具体角色的身体反应",
+        description: isVietnamese ? `Xuất hiện phản ứng tập thể sáo mòn: "${match[0]}"` : `出现集体反应套话："${match[0]}"`,
+        suggestion: isVietnamese ? "Viết lại thành phản ứng cơ thể của 1-2 nhân vật cụ thể." : "改写成1-2个具体角色的身体反应",
       });
       break;
     }
@@ -250,10 +284,10 @@ export function validatePostWrite(
   }
   if (maxConsecutiveLe >= 6) {
     violations.push({
-      rule: "连续了字",
+      rule: isVietnamese ? "lặp trợ từ 了" : "连续了字",
       severity: "warning",
-      description: `检测到${maxConsecutiveLe}句连续包含"了"字，节奏拖沓`,
-      suggestion: "保留最有力的一个「了」，其余改为无「了」句式",
+      description: isVietnamese ? `Phát hiện ${maxConsecutiveLe} câu liên tiếp chứa chữ "了", làm nhịp văn ì.` : `检测到${maxConsecutiveLe}句连续包含"了"字，节奏拖沓`,
+      suggestion: isVietnamese ? "Giữ chữ '了' có lực nhất, các câu còn lại đổi sang cấu trúc không có '了'." : "保留最有力的一个「了」，其余改为无「了」句式",
     });
   }
 
@@ -266,14 +300,14 @@ export function validatePostWrite(
   const longParagraphs = paragraphs.filter(p => p.length > 300);
   if (longParagraphs.length >= 2) {
     violations.push({
-      rule: "段落过长",
+      rule: isVietnamese ? "đoạn quá dài" : "段落过长",
       severity: "warning",
-      description: `${longParagraphs.length}个段落超过300字，不适合手机阅读`,
-      suggestion: "长段落拆分为3-5行的短段落，在动作切换或情绪节点处断开",
+      description: isVietnamese ? `${longParagraphs.length} đoạn vượt 300 ký tự, không hợp đọc trên điện thoại` : `${longParagraphs.length}个段落超过300字，不适合手机阅读`,
+      suggestion: isVietnamese ? "Tách đoạn dài thành các đoạn 3-5 dòng, ngắt ở điểm đổi hành động hoặc cảm xúc." : "长段落拆分为3-5行的短段落，在动作切换或情绪节点处断开",
     });
   }
 
-  violations.push(...detectParagraphShapeWarnings(content, "zh"));
+  violations.push(...detectParagraphShapeWarnings(content, resolvedLanguage));
 
   // 11. Book-level prohibitions
   // Short prohibitions (2-30 chars): exact substring match
@@ -282,16 +316,33 @@ export function validatePostWrite(
     for (const prohibition of bookRules.prohibitions) {
       if (prohibition.length >= 2 && prohibition.length <= 30 && content.includes(prohibition)) {
         violations.push({
-          rule: "本书禁忌",
+          rule: isVietnamese ? "điều cấm của sách" : "本书禁忌",
           severity: "error",
-          description: `出现了本书禁忌内容："${prohibition}"`,
-          suggestion: "删除或改写该内容",
+          description: isVietnamese ? `Xuất hiện nội dung bị cấm trong sách: "${prohibition}"` : `出现了本书禁忌内容："${prohibition}"`,
+          suggestion: isVietnamese ? "Xóa hoặc viết lại nội dung này." : "删除或改写该内容",
         });
       }
     }
   }
 
   return violations;
+}
+
+function findForbiddenProperNameVariants(
+  content: string,
+  forbiddenVariants: ReadonlyArray<string>,
+): string[] {
+  const hits: string[] = [];
+  const seen = new Set<string>();
+  for (const variant of forbiddenVariants) {
+    const trimmed = variant.trim();
+    if (!trimmed) continue;
+    if (content.includes(trimmed) && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      hits.push(trimmed);
+    }
+  }
+  return hits;
 }
 
 /**
@@ -301,7 +352,7 @@ export function validatePostWrite(
 export function detectCrossChapterRepetition(
   currentContent: string,
   recentChaptersContent: string,
-  language: "zh" | "en" = "zh",
+  language: InkOSLanguage = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   if (!recentChaptersContent || recentChaptersContent.length < 100) return [];
 
@@ -365,7 +416,7 @@ export function detectCrossChapterRepetition(
 export function detectParagraphLengthDrift(
   currentContent: string,
   recentChaptersContent: string,
-  language: "zh" | "en" = "zh",
+  language: LengthLanguage = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   if (!recentChaptersContent || recentChaptersContent.trim().length === 0) return [];
 
@@ -490,7 +541,7 @@ function validatePostWriteEnglish(
 function appendParagraphShapeWarnings(
   violations: PostWriteViolation[],
   content: string,
-  language: "zh" | "en",
+  language: InkOSLanguage,
 ): void {
   const shape = analyzeParagraphShape(content, language);
   if (shape.paragraphs.length < 4) return;
@@ -504,6 +555,13 @@ function appendParagraphShapeWarnings(
             description: `${shape.shortParagraphs.length} of ${shape.paragraphs.length} paragraphs are shorter than ${shape.shortThreshold} characters.`,
             suggestion: "Merge adjacent action, observation, and reaction beats so the chapter does not collapse into one-line paragraphs.",
           }
+        : language === "vi"
+          ? {
+              rule: "đoạn bị vụn",
+              severity: "warning",
+              description: `${shape.shortParagraphs.length}/${shape.paragraphs.length} đoạn ngắn hơn ${shape.shortThreshold} ký tự, khiến nhịp đoạn bị cắt vụn.`,
+              suggestion: "Gộp các nhịp hành động, quan sát và phản ứng liền nhau; đừng tách gần như mỗi câu thành một đoạn riêng.",
+            }
         : {
             rule: "段落过碎",
             severity: "warning",
@@ -522,6 +580,13 @@ function appendParagraphShapeWarnings(
             description: `${shape.maxConsecutiveShort} short paragraphs appear back to back.`,
             suggestion: "Break the one-beat-per-paragraph rhythm by folding connected beats into fuller paragraphs.",
           }
+        : language === "vi"
+          ? {
+              rule: "đoạn ngắn liên tiếp",
+              severity: "warning",
+              description: `Có ${shape.maxConsecutiveShort} đoạn dưới ${shape.shortThreshold} ký tự xuất hiện liên tiếp, dễ tạo cảm giác xếp câu ngắn máy móc.`,
+              suggestion: "Gộp lại các hành động vụn thành ít nhất một đoạn có chuỗi hành động hoặc chuyển động cảm xúc đầy đủ.",
+            }
         : {
             rule: "连续短段",
             severity: "warning",
@@ -532,9 +597,11 @@ function appendParagraphShapeWarnings(
   }
 }
 
+import type { LengthLanguage } from "../utils/length-metrics.js";
+
 export function detectParagraphShapeWarnings(
   content: string,
-  language: "zh" | "en" = "zh",
+  language: LengthLanguage = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   const violations: PostWriteViolation[] = [];
   appendParagraphShapeWarnings(violations, content, language);
@@ -546,11 +613,11 @@ function isDialogueParagraph(paragraph: string): boolean {
   return /^[""「『'《]/.test(trimmed) || /^[""]/.test(trimmed) || /^——/.test(trimmed);
 }
 
-function analyzeParagraphShape(content: string, language: "zh" | "en"): ParagraphShape {
+function analyzeParagraphShape(content: string, language: LengthLanguage): ParagraphShape {
   const paragraphs = extractParagraphs(content);
   // Exclude dialogue lines from short paragraph counting — dialogue is naturally short
   const narrativeParagraphs = paragraphs.filter((p) => !isDialogueParagraph(p));
-  const shortThreshold = language === "en" ? 120 : 35;
+  const shortThreshold = language === "en" ? 120 : language === "vi" ? 100 : 35;
   const shortParagraphs = narrativeParagraphs.filter((paragraph) => paragraph.length < shortThreshold);
   const averageLength = paragraphs.length > 0
     ? paragraphs.reduce((sum, paragraph) => sum + paragraph.length, 0) / paragraphs.length
@@ -661,7 +728,7 @@ export function detectDuplicateTitle(
 export function resolveDuplicateTitle(
   newTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en" = "zh",
+  language: InkOSLanguage = "zh",
   options?: {
     readonly content?: string;
   },
@@ -715,7 +782,7 @@ export function resolveDuplicateTitle(
 function detectTitleCollapse(
   newTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: InkOSLanguage,
 ): ReadonlyArray<PostWriteViolation> {
   const recentTitles = existingTitles
     .map((title) => title.trim())
@@ -762,7 +829,7 @@ function detectTitleCollapse(
 function regenerateDuplicateTitle(
   baseTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: InkOSLanguage,
   content?: string,
 ): string | undefined {
   if (!content || !content.trim()) {
@@ -784,7 +851,7 @@ function regenerateDuplicateTitle(
 function regenerateCollapsedTitle(
   baseTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: InkOSLanguage,
   content?: string,
 ): string | undefined {
   if (!content || !content.trim()) {

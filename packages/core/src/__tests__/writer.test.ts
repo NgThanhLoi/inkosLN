@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WriterAgent } from "../agents/writer.js";
@@ -35,6 +35,56 @@ function createCaptureLogger() {
 describe("WriterAgent", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("does not overwrite state files with placeholder output", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-writer-save-"));
+    try {
+      const bookDir = join(root, "books", "demo-book");
+      const storyDir = join(bookDir, "story");
+      await mkdir(storyDir, { recursive: true });
+      await writeFile(join(storyDir, "current_state.md"), "# Current State\n\n- Bronya is still feverish.\n", "utf-8");
+      await writeFile(join(storyDir, "pending_hooks.md"), "# Pending Hooks\n\n- H002 remains active.\n", "utf-8");
+
+      const agent = new WriterAgent({
+        client: {
+          provider: "openai",
+          apiFormat: "chat",
+          stream: false,
+          defaults: {
+            temperature: 0.7,
+            maxTokens: 4096,
+            thinkingBudget: 0,
+            extra: {},
+          },
+        },
+        model: "test-model",
+        projectRoot: root,
+      });
+
+      await agent.saveChapter(bookDir, {
+        chapterNumber: 12,
+        title: "Áp Phích Không Trung",
+        content: "Nội dung chương.",
+        wordCount: 3,
+        preWriteCheck: "",
+        postSettlement: "",
+        updatedState: "(状态卡未更新)",
+        updatedLedger: "",
+        updatedHooks: "(伏笔池未更新)",
+        chapterSummary: "",
+        updatedSubplots: "",
+        updatedEmotionalArcs: "",
+        updatedCharacterMatrix: "",
+        postWriteErrors: [],
+        postWriteWarnings: [],
+      }, false, "vi");
+
+      await expect(readFile(join(storyDir, "current_state.md"), "utf-8")).resolves.toContain("Bronya is still feverish");
+      await expect(readFile(join(storyDir, "pending_hooks.md"), "utf-8")).resolves.toContain("H002 remains active");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("renders per-chapter user context in governed creative prompts", () => {

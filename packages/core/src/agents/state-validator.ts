@@ -1,4 +1,5 @@
 import { BaseAgent } from "./base.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 export interface ValidationWarning {
   readonly category: string;
@@ -36,7 +37,7 @@ export class StateValidatorAgent extends BaseAgent {
     newState: string,
     oldHooks: string,
     newHooks: string,
-    language: "zh" | "en" = "zh",
+    language: InkOSLanguage = "zh",
     authorityContext?: StateValidationAuthorityContext,
   ): Promise<ValidationResult> {
     const stateDiff = this.computeDiff(oldState, newState, "State Card");
@@ -49,7 +50,9 @@ export class StateValidatorAgent extends BaseAgent {
 
     const langInstruction = language === "en"
       ? "Respond in English."
-      : "用中文回答。";
+      : language === "vi"
+        ? "Respond in Vietnamese. Keep category tags such as [unsupported_change] unchanged, but write warning descriptions in Vietnamese."
+        : "用中文回答。";
 
     const systemPrompt = `You are a continuity validator for a novel writing system. ${langInstruction}
 

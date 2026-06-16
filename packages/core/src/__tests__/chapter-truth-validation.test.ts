@@ -250,4 +250,55 @@ describe("validateChapterTruthPersistence", () => {
       }),
     ]);
   });
+
+  it("degrades immediately without settlement retry when retryOnFailure is false", async () => {
+    const validator = {
+      validate: vi.fn().mockResolvedValueOnce(createValidationResult({
+        passed: false,
+        warnings: [{
+          category: "unsupported_change",
+          description: "state contradicts chapter body.",
+        }],
+      })),
+    };
+    const writer = {
+      settleChapterState: vi.fn(),
+    };
+
+    const result = await validateChapterTruthPersistence({
+      writer,
+      validator,
+      book: BOOK,
+      bookDir: "/tmp/book",
+      chapterNumber: 5,
+      title: "Test Chapter",
+      content: "Healthy chapter body with the copper token in his coat.",
+      persistenceOutput: createWriterOutput({
+        updatedState: "broken state",
+        updatedHooks: "broken hooks",
+        updatedLedger: "broken ledger",
+      }),
+      auditResult: createAuditResult(),
+      previousTruth: {
+        oldState: "stable state",
+        oldHooks: "stable hooks",
+        oldLedger: "stable ledger",
+      },
+      language: "en",
+      logWarn: vi.fn(),
+      logger: { warn: vi.fn() },
+      retryOnFailure: false,
+    });
+
+    expect(writer.settleChapterState).not.toHaveBeenCalled();
+    expect(result.chapterStatus).toBe("state-degraded");
+    expect(result.persistenceOutput.updatedState).toBe("stable state");
+    expect(result.degradedIssues).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        category: "state-validation",
+        description: "state contradicts chapter body.",
+      }),
+    ]);
+  });
 });

@@ -330,6 +330,9 @@ function applyCommonEnv(
   if (env.INKOS_LLM_PROXY_URL) llm.proxyUrl = env.INKOS_LLM_PROXY_URL;
   if (env.INKOS_LLM_API_FORMAT) llm.apiFormat = env.INKOS_LLM_API_FORMAT;
   if (env.INKOS_LLM_STREAM) llm.stream = parseBoolean(env.INKOS_LLM_STREAM);
+  if (env.INKOS_LLM_INSTRUCTION_MODE && (env.INKOS_LLM_INSTRUCTION_MODE === "system" || env.INKOS_LLM_INSTRUCTION_MODE === "user")) {
+    llm.instructionMode = env.INKOS_LLM_INSTRUCTION_MODE;
+  }
   if (env.INKOS_DEFAULT_LANGUAGE) config.language = env.INKOS_DEFAULT_LANGUAGE;
 
   const extraFromEnv: Record<string, unknown> = {};

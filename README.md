@@ -180,6 +180,10 @@ inkos config show-models        # 查看当前路由
 
 未单独配置的 Agent 自动使用全局模型。
 
+更多高级路由见 [`docs/model-routing.md`](docs/model-routing.md)：支持按 agent 设置
+`--instruction-mode system|user|all-user`，也支持 `writer-state` 独立路由，
+用于把章节正文写作和状态落库拆给不同模型。
+
 #### 配置排查
 
 ```bash

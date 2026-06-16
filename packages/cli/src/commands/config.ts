@@ -98,7 +98,8 @@ configCommand
   .option("--max-tokens <n>", "Max output tokens")
   .option("--thinking-budget <n>", "Anthropic thinking budget")
   .option("--api-format <format>", "API format (chat / responses)")
-  .option("--lang <language>", "Default writing language: zh (Chinese) or en (English)")
+  .option("--lang <language>", "Default writing language: zh (Chinese), en (English), or vi (Vietnamese)")
+  .option("--instruction-mode <mode>", "Where to inject structural instructions: system (default) or user (for models that ignore system prompts)")
   .action(async (opts) => {
     try {
       await mkdir(GLOBAL_CONFIG_DIR, { recursive: true });
@@ -114,6 +115,13 @@ configCommand
       if (opts.thinkingBudget) lines.push(`INKOS_LLM_THINKING_BUDGET=${opts.thinkingBudget}`);
       if (opts.apiFormat) lines.push(`INKOS_LLM_API_FORMAT=${opts.apiFormat}`);
       if (opts.lang) lines.push(`INKOS_DEFAULT_LANGUAGE=${opts.lang}`);
+      if (opts.instructionMode) {
+        const validModes = INSTRUCTION_MODES;
+        if (!validModes.includes(opts.instructionMode)) {
+          throw new Error(`Invalid instruction mode: "${opts.instructionMode}". Must be one of: ${validModes.join(", ")}`);
+        }
+        lines.push(`INKOS_LLM_INSTRUCTION_MODE=${opts.instructionMode}`);
+      }
 
       await writeFile(GLOBAL_ENV_PATH, lines.join("\n") + "\n", "utf-8");
       log(`Global config saved to ${GLOBAL_ENV_PATH}`);
@@ -162,8 +170,9 @@ configCommand
     }
   });
 
-const KNOWN_AGENTS = ["writer", "auditor", "reviser", "architect", "radar", "chapter-analyzer"] as const;
+const KNOWN_AGENTS = ["writer", "writer-state", "auditor", "reviser", "architect", "radar", "chapter-analyzer", "researcher", "planner", "state-validator", "foundation-reviewer", "fanfic-canon-importer", "short-outline", "short-outline-review", "short-writer", "short-draft-review", "short-revise", "short-package"] as const;
 const ENV_VAR_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const INSTRUCTION_MODES = ["system", "user", "all-user"] as const;
 
 function validateApiKeyEnvName(value: string): string | undefined {
   if (ENV_VAR_NAME_PATTERN.test(value)) return undefined;
@@ -181,9 +190,10 @@ configCommand
   .option("--base-url <url>", "API base URL (for different provider)")
   .option("--provider <provider>", "Provider type (openai / anthropic / custom)")
   .option("--api-key-env <envVar>", "Env variable name for API key (e.g., PACKYAPI_KEY)")
+  .option("--instruction-mode <mode>", "Prompt routing mode for this agent (system / user / all-user)")
   .option("--stream", "Enable streaming (default)")
   .option("--no-stream", "Disable streaming")
-  .action(async (agent: string, model: string, opts: { baseUrl?: string; provider?: string; apiKeyEnv?: string; stream?: boolean }) => {
+  .action(async (agent: string, model: string, opts: { baseUrl?: string; provider?: string; apiKeyEnv?: string; instructionMode?: string; stream?: boolean }) => {
     if (!KNOWN_AGENTS.includes(agent as typeof KNOWN_AGENTS[number])) {
       logError(`Unknown agent "${agent}". Valid agents: ${KNOWN_AGENTS.join(", ")}`);
       process.exit(1);
@@ -196,6 +206,10 @@ configCommand
         process.exit(1);
       }
     }
+    if (opts.instructionMode && !INSTRUCTION_MODES.includes(opts.instructionMode as typeof INSTRUCTION_MODES[number])) {
+      logError(`Invalid instruction mode "${opts.instructionMode}". Valid modes: ${INSTRUCTION_MODES.join(", ")}`);
+      process.exit(1);
+    }
 
     const root = findProjectRoot();
     const configPath = join(root, "inkos.json");
@@ -205,12 +219,13 @@ configCommand
       const config = JSON.parse(raw);
       const overrides = config.modelOverrides ?? {};
 
-      const hasProviderOpts = opts.baseUrl || opts.provider || opts.apiKeyEnv || opts.stream === false;
+      const hasProviderOpts = opts.baseUrl || opts.provider || opts.apiKeyEnv || opts.instructionMode || opts.stream === false;
       if (hasProviderOpts) {
         const override: Record<string, unknown> = { model };
         if (opts.baseUrl) override.baseUrl = opts.baseUrl;
         if (opts.provider) override.provider = opts.provider;
         if (opts.apiKeyEnv) override.apiKeyEnv = opts.apiKeyEnv;
+        if (opts.instructionMode) override.instructionMode = opts.instructionMode;
         if (opts.stream === false) override.stream = false;
         config.modelOverrides = { ...overrides, [agent]: override };
       } else {
@@ -284,6 +299,7 @@ configCommand
           const parts = [o.model as string];
           if (o.baseUrl) parts.push(`@ ${o.baseUrl}`);
           if (o.stream === false) parts.push("[no-stream]");
+          if (o.instructionMode) parts.push(`[instruction=${o.instructionMode}]`);
           log(`  ${agent} → ${parts.join(" ")}`);
         }
       }

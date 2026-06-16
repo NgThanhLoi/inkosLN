@@ -239,6 +239,7 @@ function buildEnvLLMConfig(options: {
     thinkingBudget: parseEnvInteger(process.env.INKOS_LLM_THINKING_BUDGET, 0),
     apiFormat: process.env.INKOS_LLM_API_FORMAT === "responses" ? "responses" : "chat",
     stream: process.env.INKOS_LLM_STREAM === "false" ? false : true,
+    instructionMode: (process.env.INKOS_LLM_INSTRUCTION_MODE as "system" | "user" | undefined) ?? "system",
   };
 }
 

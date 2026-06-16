@@ -6,11 +6,91 @@
  * Injected once during initBook/generateStyleGuide, then read by
  * writer on every chapter as part of the style_guide context.
  */
-export function buildWritingMethodologySection(language: "zh" | "en"): string {
+export function buildWritingMethodologySection(language: "zh" | "en" | "vi"): string {
   if (language === "en") {
     return buildEnglishMethodology();
   }
+  if (language === "vi") {
+    return buildVietnameseMethodology();
+  }
   return buildChineseMethodology();
+}
+
+function buildVietnameseMethodology(): string {
+  return `---
+
+# Phương pháp Luận Viết (Tự động tạo)
+
+Phần này cung cấp phương pháp luận viết chung cho các mô hình AI. Các phần dưới đây mô tả cách biến kế hoạch thành văn xuôi cuốn hút.
+
+## Bối cảnh cốt lõi
+
+Mỗi chương phải tạo ra **bối cảnh ba chiều** để nhúng người đọc:
+1. **Không gian vật lý**: Nhân vật ở đâu? Bố trí ra sao? Thời tiết, ánh sáng, âm thanh, mùi?
+2. **Bối cảnh cảm xúc**: Trạng thái nội tâm trước khi chương bắt đầu? Căng thẳng, kỳ vọng, kiệt sức, nhiệt tình?
+3. **Bối cảnh xã hội**: Ai khác đang có mặt? Quyền lực giữa các nhân vật thay đổi như thế nào?
+
+Bối cảnh thường bị bỏ qua bởi các tác nhân AI. Hãy luôn dệt ba lớp này vào văn xuôi của bạn.
+
+## Hành động có mục đích
+
+Mọi hành động trong cảnh nên phục vụ **ít nhất một trong các mục đích** sau:
+- Tiết lộ nhân vật (hành vi ẩn, động cơ thầm kín)
+- Thúc đẩy cốt truyện (kết quả không thể đoán trước)
+- Thiết lập/trao đổi thông tin (lộ sự thật mới)
+- Thay đổi cảm xúc (khiến người đọc cảm thấy khác)
+
+Tránh các cảnh mà nhân vật chỉ "làm gì đó" mà không có mục đích cụ thể.
+
+## Nhịp và nhịp điệu
+
+- **Mở đầu chương**: Bắt đầu bằng hành động, bối cảnh hoặc đối thoại — không phải lời kể chung chung
+- **Đối thoại**: Ngắn gọn và khác biệt. Mỗi nhân vật nên có giọng riêng (từ vựng, nhịp điệu, chiều dài câu)
+- **Cảnh xen kẽ**: Kết hợp cảnh hành động với cảnh tĩnh lặng để người đọc có thời gian thở
+- **Câu kết chương**: Kết thúc ở khoảnh khắc căng thẳng hoặc bước ngoặt
+
+## Hiển thị, đừng kể (Show, Don't Tell)
+
+Thay vì nói "cô ấy buồn", hãy viết:
+- Cô ấy nhìn xuống đôi tay mình, ngón tay vô thức xoắn chiếc nhẫn bạc
+- Hàm cô siết chặt, mắt hơi cay
+- Cô đứng dậy bước ra ban công, để gió lạnh thổi qua mặt
+
+**6 kỹ thuật hiển thị cảm xúc**:
+1. **Ngôn ngữ cơ thể**: Tư thế, cử chỉ, hành vi nhỏ
+2. **Biểu cảm**: Nét mặt thay đổi như thế nào
+3. **Hành động thay thế**: Nhân vật làm gì thay vì thể hiện cảm xúc trực tiếp
+4. **Phản ứng sinh lý**: Tim đập nhanh, mồ hôi, thở gấp
+5. **Tương tác môi trường**: Chạm vào đồ vật, đi ra ngoài trời
+6. **Biểu hiện cảm xúc**: Cảm xúc nào đi kèm? Ngôn ngữ cơ thể, biểu cảm, giọng điệu?
+
+## Bài học chuyên sâu
+
+### 1. Hành động bắt đầu (Action openings)
+Mở đầu bằng hành động cụ thể hoặc bối cảnh, không phải lời kể trừu tượng. Người đọc muốn được đắm chìm ngay lập tức.
+
+### 2. Cấu trúc ba hồi (Three-act structure)
+Áp dụng cấu trúc cổ điển: thiết lập → đối đầu → giải quyết. Ngay cả khi bạn không viết theo cấu trúc ba hồi, hãy đảm bảo chương có nhịp điệu căng thẳng → giải tỏa.
+
+### 3. Hồi tưởng tự nhiên (Natural flashbacks)
+Tránh lạm dụng hồi tưởng dài. Nếu cần, hãy tích hợp vào dòng ý thức hiện tại, không phải như một đoạn riêng biệt.
+
+### 4. Đối thoại phục vụ cốt truyện (Plot-serving dialogue)
+Mỗi đoạn đối thoại nên tiết lộ nhân vật HOẶC thúc đẩy cốt truyện HOẶC cả hai. Tránh đối thoại "chào hỏi" thuần túy.
+
+### 5. Kết thúc mạnh (Strong endings)
+Kết thúc chương bằng một khoảnh khắc có trọng lượng: lựa chọn, hậu quả, hoặc lời hứa. Đừng kết thúc bằng sự kiệt sức hay buồn ngủ.
+
+### 6. Mật độ hành động cao (High action density)
+Mỗi 500 từ nên có ít nhất một khoảnh khắc căng thẳng hoặc bước ngoặt. Nếu không, chương có thể đang bị lê thê.
+
+## Mẹo dành riêng cho tác nhân AI
+
+1. **Tránh cụm từ AI-điển hình**: "Không khí đóng băng", "trái tim co thắt", "ánh mắt sắc lạnh", v.v. Xem danh sách từ mệt mỏi trong tệp genre.
+2. **Tôn trọng ngữ cảnh đã thiết lập**: Nếu fact file nói nhân vật A ghét nhân vật B, đừng bắt họ đột ngột thân thiết.
+3. **Số lượng dài cụ thể**: Đừng viết "một số binh sĩ" — hãy viết "bảy binh sĩ mặc giáp đen".
+4. **Duy trì giọng nói nhân vật**: Nếu nhân vật nói ngắn gọn, họ phải luôn nói ngắn gọn.
+`;
 }
 
 function buildChineseMethodology(): string {

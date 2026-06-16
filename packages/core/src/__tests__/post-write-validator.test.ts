@@ -76,6 +76,17 @@ describe("validatePostWrite", () => {
     expect(findRule(result, "禁止破折号")).toBeUndefined();
   });
 
+  it("localizes Vietnamese post-write warnings", () => {
+    const longParagraph = "Bronya bước qua hành lang hẹp, mùi thuốc sát trùng loãng và dầu máy cũ quấn lấy cổ họng cô, còn ánh đèn địa tủy trên tường hắt xuống những bóng người mệt mỏi đang chờ Natasha gọi tên. ".repeat(3);
+    const content = [longParagraph, longParagraph].join("\n\n");
+
+    const result = validatePostWrite(content, baseProfile, null, "vi");
+
+    expect(findRule(result, "đoạn quá dài")?.description).toContain("không hợp đọc trên điện thoại");
+    expect(result.map(v => `${v.rule} ${v.description} ${v.suggestion}`).join("\n"))
+      .not.toMatch(/[\u4e00-\u9fff]/u);
+  });
+
   it("detects surprise marker density exceeding threshold", () => {
     // ~100 chars total, threshold = max(1, floor(100/3000)) = 1, but we put 3 markers
     const content = "他忽然站起来。仿佛听到了什么声音。竟然是那个人回来了。";
@@ -188,6 +199,20 @@ describe("validatePostWrite", () => {
     const content = "他一脸跪舔的样子让人恶心。";
     const result = validatePostWrite(content, baseProfile, bookRules);
     expect(findRule(result, "本书禁忌")).toBeDefined();
+  });
+
+  it("detects forbidden Vietnamese transliterated proper-name variants", () => {
+    const content = "Giê-pát siết chặt thương, còn Bronya đứng phía sau nhìn lên Thiên Mạc.";
+
+    const result = validatePostWrite(content, { ...baseProfile, language: "vi" }, null, "vi", {
+      forbiddenProperNameVariants: ["Giê-pát", "Bờ-rô-ni-a", "Cô-cô-li-a"],
+    });
+
+    const violation = findRule(result, "proper-name-transliteration");
+    expect(violation).toBeDefined();
+    expect(violation?.severity).toBe("error");
+    expect(violation?.description).toContain("Giê-pát");
+    expect(violation?.suggestion).toContain("tên chuẩn");
   });
 
   it("does not flag allowed content", () => {

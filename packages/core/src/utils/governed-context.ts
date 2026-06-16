@@ -1,8 +1,9 @@
 import type { ContextPackage } from "../models/input-governance.js";
+import type { InkOSLanguage } from "./language.js";
 
 export function buildGovernedMemoryEvidenceBlocks(
   contextPackage: ContextPackage,
-  language?: "zh" | "en",
+  language?: InkOSLanguage,
 ): {
   readonly hookDebtBlock?: string;
   readonly hooksBlock?: string;

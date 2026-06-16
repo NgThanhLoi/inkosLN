@@ -13,6 +13,7 @@ import {
 } from "../models/runtime-state.js";
 import { evaluateHookAdmission } from "../utils/hook-governance.js";
 import { resolveHookPayoffTiming } from "../utils/hook-lifecycle.js";
+import type { InkOSLanguage } from "../utils/language.js";
 import { validateRuntimeState } from "./state-validator.js";
 
 export interface RuntimeStateSnapshot {
@@ -178,7 +179,7 @@ function preferRicherText(primary: string, fallback: string): string {
 
 function applyCurrentStatePatch(
   currentState: CurrentStateState,
-  language: "zh" | "en",
+  language: InkOSLanguage,
   delta: RuntimeStateDelta,
 ): CurrentStateState {
   if (!delta.currentStatePatch) {

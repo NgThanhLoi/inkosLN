@@ -65,6 +65,29 @@ describe("CLI localization", () => {
       "  Issues:",
       "    [critical] continuity: Mismatch",
     ]);
+
+    expect(formatWriteNextProgress("vi", 1, 1, "belobog"))
+      .toBe('[1/1] Đang viết chương cho "belobog"...');
+    expect(formatWriteNextComplete("vi")).toBe("Hoàn tất.");
+    expect(formatWriteNextResultLines("vi", {
+      chapterNumber: 9,
+      title: "Máu Và Dầu Máy",
+      wordCount: 2156,
+      status: "audit-failed",
+      revised: true,
+      issues: [
+        { severity: "critical", category: "伏笔债务", description: "Hook H005 chưa được xử lý" },
+      ],
+      auditPassed: false,
+    })).toEqual([
+      "  Chương 9: Máu Và Dầu Máy",
+      "  Độ dài: 2156 từ",
+      "  Kiểm tra: CẦN XEM LẠI",
+      "  Tự động sửa: CÓ (đã sửa các vấn đề quan trọng)",
+      "  Trạng thái: cần sửa sau kiểm tra",
+      "  Vấn đề:",
+      "    [nghiêm trọng] Nợ hook: Hook H005 chưa được xử lý",
+    ]);
   });
 
   it("formats import summaries with language-specific units and action hints", () => {

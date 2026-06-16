@@ -18,6 +18,7 @@
 import type { StoredHook } from "../state/memory-db.js";
 import type { HookRecord } from "../models/runtime-state.js";
 import { resolveHalfLifeChapters } from "./hook-promotion.js";
+import type { InkOSLanguage } from "./language.js";
 
 export interface HookDiagnostics {
   readonly stale: boolean;
@@ -142,7 +143,7 @@ export function computeHookDiagnostics(params: {
  */
 export function renderHookDiagnosticMarker(
   diagnostics: HookDiagnostics,
-  language: "zh" | "en",
+  language: InkOSLanguage,
 ): string {
   const tokens: string[] = [];
   if (diagnostics.stale) {

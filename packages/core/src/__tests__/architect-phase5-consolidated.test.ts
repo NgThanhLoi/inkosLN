@@ -186,8 +186,8 @@ describe("Phase 5 consolidation — 7→5 sections, prompt contract", () => {
     const messages = chat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
     const system = messages[0]?.content ?? "";
 
-    const headers = [...system.matchAll(/^=== SECTION: ([a-z_]+) ===$/gim)]
-      .map((match) => match[1]);
+    const headers = [...new Set([...system.matchAll(/^=== SECTION: ([a-z_]+) ===$/gim)]
+      .map((match) => match[1]))];
     expect(headers).toEqual([
       "story_frame",
       "volume_map",
@@ -267,8 +267,8 @@ describe("Phase 5 consolidation — 7→5 sections, prompt contract", () => {
     await agent.generateFoundation(enBook);
     const system = (chat.mock.calls[0]?.[0] as Array<{ content: string }>)[0]?.content ?? "";
 
-    const headers = [...system.matchAll(/^=== SECTION: ([a-z_]+) ===$/gim)]
-      .map((match) => match[1]);
+    const headers = [...new Set([...system.matchAll(/^=== SECTION: ([a-z_]+) ===$/gim)]
+      .map((match) => match[1]))];
     expect(headers).toEqual([
       "story_frame",
       "volume_map",

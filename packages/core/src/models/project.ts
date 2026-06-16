@@ -32,6 +32,14 @@ export const LLMConfigSchema = z.object({
   headers: z.record(z.string()).optional(),
   apiFormat: z.enum(["chat", "responses"]).default("chat"),
   stream: z.boolean().default(true),
+  /**
+   * Controls where the architect's core structural instructions are placed.
+   * - "system" (default): instructions go in the system message.
+   * - "user": instructions are injected into the user message with
+   *   `<EXTREMELY_IMPORTANT>` tags — needed for models that ignore system
+   *   prompts (e.g. some routed / proxy models).
+   */
+  instructionMode: z.enum(["system", "user", "all-user"]).default("system"),
   services: z.array(LLMServiceEntrySchema).optional(),
   defaultModel: z.string().min(1).optional(),
   cover: LLMCoverConfigSchema,
@@ -101,6 +109,9 @@ export const AgentLLMOverrideSchema = z.object({
   baseUrl: z.string().url().optional(),
   apiKeyEnv: z.string().optional(),
   stream: z.boolean().optional(),
+  instructionMode: z.enum(["system", "user", "all-user"]).optional(),
+  maxTokens: z.number().int().min(256).optional(),
+  writingMode: z.enum(["standard", "opus"]).optional(),
 });
 
 export type AgentLLMOverride = z.infer<typeof AgentLLMOverrideSchema>;
@@ -113,7 +124,7 @@ const ModelOverrideValueSchema = z.union([z.string(), AgentLLMOverrideSchema]);
 export const ProjectConfigSchema = z.object({
   name: z.string().min(1),
   version: z.literal("0.1.0"),
-  language: z.enum(["zh", "en"]).default("zh"),
+  language: z.enum(["zh", "en", "vi"]).default("zh"),
   llm: LLMConfigSchema,
   notify: z.array(NotifyChannelSchema).default([]),
   detection: DetectionConfigSchema.optional(),

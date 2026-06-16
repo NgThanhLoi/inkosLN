@@ -10,9 +10,11 @@ coverage/
 _notes/
 _tmp_*
 test-project/
+test-novel/
 .venv*/
 .gstack/
 .worktrees/
+.claude/
 docs/*
 novel-to-comic-research.docx
 .pnpm-store/

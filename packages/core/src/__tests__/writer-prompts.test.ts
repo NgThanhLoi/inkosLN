@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import { LengthSpecSchema } from "../models/length-governance.js";
-import { buildWriterSystemPrompt, buildGoldenOpeningDiscipline } from "../agents/writer-prompts.js";
+import {
+  buildWriterSystemPrompt,
+  buildGoldenOpeningDiscipline,
+  buildProperNameGlossaryBlock,
+  extractCanonicalProperNames,
+  extractVietnameseTransliteratedVariants,
+} from "../agents/writer-prompts.js";
 
 const BOOK: BookConfig = {
   id: "prompt-book",
@@ -265,5 +271,49 @@ describe("buildWriterSystemPrompt", () => {
 
     expect(prompt).toContain("English Variance Brief");
     expect(prompt).toContain("resistance-bearing exchange");
+  });
+
+  it("tells Vietnamese prompts to preserve canon proper nouns instead of transliterating them", () => {
+    const prompt = buildWriterSystemPrompt(
+      { ...BOOK, language: "vi" },
+      { ...GENRE, language: "vi", name: "Thiên Mạc" },
+      null,
+      "# Book Rules\n\n- Canon names include Bronya, Cocolia, and Belobog.",
+      "# Genre Body",
+      "# Style Guide",
+      undefined,
+      1,
+      "creative",
+      undefined,
+      "vi",
+      "governed",
+    );
+
+    expect(prompt).toContain("Tên riêng/canon/proper nouns");
+    expect(prompt).toContain("giữ nguyên chính tả gốc");
+    expect(prompt).toContain("không phiên âm");
+    expect(prompt).not.toContain("Tên nhân vật, địa danh → tiếng Việt");
+    expect(prompt.match(/LUẬT BẮT BUỘC: VIẾT BẰNG TIẾNG VIỆT/g)).toHaveLength(1);
+  });
+});
+
+describe("proper name glossary", () => {
+  it("extracts canonical Latin names and blocks Vietnamese transliterated variants", () => {
+    const canonicalNames = extractCanonicalProperNames([
+      "Nhân vật trọng tâm: Bronya, Cocolia, Gepard, Sampo Koski, Belobog.",
+      "Bronya và Cocolia đối mặt sự thật về Stellaron.",
+    ]);
+    const forbiddenVariants = extractVietnameseTransliteratedVariants([
+      "Giê-pát nhìn lên trời. Bờ-rô-ni-a đứng cạnh Cô-cô-li-a ở Be-lo-bóc.",
+    ]);
+
+    const block = buildProperNameGlossaryBlock("vi", canonicalNames, forbiddenVariants);
+
+    expect(canonicalNames).toEqual(["Bronya", "Cocolia", "Gepard", "Sampo Koski", "Belobog", "Stellaron"]);
+    expect(forbiddenVariants).toEqual(["Giê-pát", "Bờ-rô-ni-a", "Cô-cô-li-a", "Be-lo-bóc"]);
+    expect(block).toContain("## Bảng Tên Riêng Chuẩn");
+    expect(block).toContain("Bronya, Cocolia, Gepard, Sampo Koski, Belobog, Stellaron");
+    expect(block).toContain("Giê-pát, Bờ-rô-ni-a, Cô-cô-li-a, Be-lo-bóc");
+    expect(block).toContain("không phiên âm");
   });
 });

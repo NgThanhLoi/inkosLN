@@ -3,6 +3,7 @@ import { routeInteractionRequest } from "./request-router.js";
 import type { InteractionRequest } from "./intents.js";
 import type { ExecutionState, InteractionEvent } from "./events.js";
 import type { PendingDecision, InteractionSession, DraftRound } from "./session.js";
+import type { InkOSLanguage } from "../utils/language.js";
 import {
   appendInteractionEvent,
   bindActiveBook,
@@ -13,7 +14,7 @@ import {
 } from "./session.js";
 
 type ReviseMode = "local-fix" | "rewrite";
-type RuntimeLanguage = "zh" | "en";
+type RuntimeLanguage = InkOSLanguage;
 
 export interface InteractionRuntimeTools {
   readonly listBooks: () => Promise<ReadonlyArray<string>>;
@@ -25,7 +26,7 @@ export interface InteractionRuntimeTools {
     readonly title: string;
     readonly genre?: string;
     readonly platform?: string;
-    readonly language?: "zh" | "en";
+    readonly language?: InkOSLanguage;
     readonly chapterWordCount?: number;
     readonly targetChapters?: number;
     readonly blurb?: string;
@@ -109,10 +110,12 @@ function extractToolMetadata(value: unknown): InteractionToolMetadata {
 }
 
 function resolveRuntimeLanguage(request: InteractionRequest): RuntimeLanguage {
-  return request.language === "en" ? "en" : "zh";
+  if (request.language === "en") return "en";
+  if (request.language === "vi") return "vi";
+  return "zh";
 }
 
-function localize<T>(language: RuntimeLanguage, messages: { zh: T; en: T }): T {
+function localize<T>(language: RuntimeLanguage, messages: { zh: T; en: T; vi?: T }): T {
   return language === "en" ? messages.en : messages.zh;
 }
 

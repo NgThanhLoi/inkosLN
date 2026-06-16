@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseGenreProfile, type ParsedGenreProfile } from "../models/genre-profile.js";
 import { parseBookRules, tryParseBookRulesFrontmatter, type ParsedBookRules } from "../models/book-rules.js";
 import { BookConfigSchema } from "../models/book.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 const BUILTIN_GENRES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../genres");
 
@@ -142,7 +143,7 @@ export async function readBookRules(bookDir: string): Promise<ParsedBookRules | 
   return parsed;
 }
 
-export async function readBookLanguage(bookDir: string): Promise<"zh" | "en" | undefined> {
+export async function readBookLanguage(bookDir: string): Promise<InkOSLanguage | undefined> {
   const raw = await tryReadFile(join(bookDir, "book.json"));
   if (!raw) return undefined;
 

@@ -307,6 +307,74 @@ describe("runChapterReviewCycle v9", () => {
     expect(result.revised).toBe(false);
   });
 
+  it("does not repair high-scoring chapters when audit only has non-critical issues", async () => {
+    const auditChapter = vi.fn()
+      .mockResolvedValue(createAuditResult({
+        passed: false,
+        overallScore: 96,
+        issues: [{ severity: "warning", category: "paragraph-shape", description: "too even", suggestion: "vary later" }],
+      }));
+    const reviseChapter = vi.fn();
+    const normalizeDraftLengthIfNeeded = vi.fn()
+      .mockImplementation(async (content: string) => ({
+        content,
+        wordCount: content.length,
+        applied: false,
+        tokenUsage: ZERO_USAGE,
+      }));
+
+    const result = await runChapterReviewCycle({
+      ...baseParams,
+      initialOutput: {
+        content: "e".repeat(200),
+        wordCount: 200,
+        postWriteErrors: [],
+      },
+      createReviser: () => ({ reviseChapter }),
+      auditor: { auditChapter },
+      normalizeDraftLengthIfNeeded,
+    });
+
+    expect(reviseChapter).not.toHaveBeenCalled();
+    expect(result.auditResult.overallScore).toBe(96);
+    expect(result.revised).toBe(false);
+  });
+
+  it("keeps generated content when the initial LLM audit fails", async () => {
+    const auditChapter = vi.fn()
+      .mockRejectedValueOnce(new Error("LLM returned empty response from stream (usage=0+0)"));
+    const reviseChapter = vi.fn();
+    const normalizeDraftLengthIfNeeded = vi.fn()
+      .mockImplementation(async (content: string) => ({
+        content,
+        wordCount: content.length,
+        applied: false,
+        tokenUsage: ZERO_USAGE,
+      }));
+
+    const result = await runChapterReviewCycle({
+      ...baseParams,
+      initialOutput: {
+        content: "f".repeat(200),
+        wordCount: 200,
+        postWriteErrors: [],
+      },
+      createReviser: () => ({ reviseChapter }),
+      auditor: { auditChapter },
+      normalizeDraftLengthIfNeeded,
+    });
+
+    expect(result.finalContent).toBe("f".repeat(200));
+    expect(result.auditResult.passed).toBe(false);
+    expect(result.auditResult.issues).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        category: "audit-unavailable",
+      }),
+    ]);
+    expect(reviseChapter).not.toHaveBeenCalled();
+  });
+
   it("normalizes deterministic surface blockers before audit and repair", async () => {
     const auditChapter = vi.fn()
       .mockResolvedValue(createAuditResult({ overallScore: 90, passed: true }));
@@ -341,5 +409,42 @@ describe("runChapterReviewCycle v9", () => {
     expect(result.finalContent).not.toContain("——");
     expect(result.auditResult.passed).toBe(true);
     expect(reviseChapter).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid length-normalizer output and keeps the original draft", async () => {
+    const original = `${"星".repeat(120)}。`;
+    const invalidNormalized = `${"雪".repeat(180)}\nshort`;
+    const auditChapter = vi.fn()
+      .mockResolvedValue(createAuditResult({ overallScore: 90, passed: true }));
+    const reviseChapter = vi.fn();
+    const normalizeDraftLengthIfNeeded = vi.fn()
+      .mockResolvedValue({
+        content: invalidNormalized,
+        wordCount: invalidNormalized.length,
+        applied: true,
+        tokenUsage: ZERO_USAGE,
+      });
+
+    const result = await runChapterReviewCycle({
+      ...baseParams,
+      initialOutput: {
+        content: original,
+        wordCount: original.length,
+        postWriteErrors: [],
+      },
+      createReviser: () => ({ reviseChapter }),
+      auditor: { auditChapter },
+      normalizeDraftLengthIfNeeded,
+      assertChapterContentNotEmpty: (content, stage) => {
+        if (stage === "draft generation" && content === invalidNormalized) {
+          throw new Error("Chapter 11 has truncated chapter content after draft generation");
+        }
+      },
+      maxReviewIterations: 0,
+    });
+
+    expect(result.finalContent).toBe(original);
+    expect(result.normalizeApplied).toBe(false);
+    expect(auditChapter.mock.calls[0]?.[1]).toBe(original);
   });
 });

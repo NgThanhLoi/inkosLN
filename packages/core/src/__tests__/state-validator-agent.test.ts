@@ -83,6 +83,35 @@ describe("StateValidatorAgent", () => {
     expect(options?.maxTokens).toBeUndefined();
   });
 
+  it("asks the validator to write Vietnamese warnings for Vietnamese books", async () => {
+    const agent = new StateValidatorAgent({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 8192,
+          thinkingBudget: 0,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: process.cwd(),
+    });
+
+    const chatSpy = vi.spyOn(
+      agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> },
+      "chat",
+    ).mockResolvedValue({ content: "PASS", usage: ZERO_USAGE });
+
+    await agent.validate("Nội dung chương.", 1, "old", "new state", "old hooks", "new hooks", "vi");
+
+    const messages = chatSpy.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content).toContain("Respond in Vietnamese");
+    expect(messages[0]?.content).not.toContain("用中文回答");
+  });
+
   it("passes authority truth context into the cross-file validation prompt", async () => {
     const agent = new StateValidatorAgent({
       client: {

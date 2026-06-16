@@ -130,12 +130,12 @@ describe("validateHookLedger", () => {
     expect(violations).toEqual([]);
   });
 
-  it("flags a critical violation for each un-echoed advance/resolve entry", () => {
+  it("flags a non-blocking warning for each un-echoed advance/resolve entry", () => {
     // Only 胖虎 (H007) present; 雷架/焦痕 (H012) and 杂役/腰牌 (H003) missing.
     const draft = "林秋只摸出胖虎借条，其他都没写。";
     const violations = validateHookLedger(ZH_MEMO, draft);
     expect(violations).toHaveLength(2);
-    expect(violations.every((v) => v.severity === "critical")).toBe(true);
+    expect(violations.every((v) => v.severity === "warning")).toBe(true);
     expect(violations.map((v) => v.description).join(" ")).toContain("H012");
     expect(violations.map((v) => v.description).join(" ")).toContain("H003");
   });

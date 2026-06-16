@@ -552,6 +552,10 @@ function deriveBookIdFromTitle(title: string): string {
   return title
     .trim()
     .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9\u4e00-\u9fff]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -1164,6 +1168,7 @@ async function probeServiceCapabilities(args: {
         proxyUrl: args.proxyUrl,
         apiFormat: plan.apiFormat,
         stream: plan.stream,
+        instructionMode: "system",
       } as ProjectConfig["llm"]);
 
       try {

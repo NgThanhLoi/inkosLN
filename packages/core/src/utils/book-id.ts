@@ -4,6 +4,10 @@ export function deriveBookIdFromTitle(title: string): string {
   return title
     .trim()
     .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9\u4e00-\u9fff]/gu, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")

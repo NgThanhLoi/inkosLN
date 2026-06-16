@@ -44,6 +44,11 @@ describe("length metrics", () => {
     });
   });
 
+  it("counts Vietnamese chapter length using vi_words", () => {
+    expect(countChapterLength("Tôi đi học.", "vi_words")).toBe(3);
+    expect(countChapterLength("Thử nghiệm không gian", "vi_words")).toBe(4);
+  });
+
   it("builds a conservative length spec for English chapters", () => {
     const spec = buildLengthSpec(2200, "en");
 
@@ -52,6 +57,17 @@ describe("length metrics", () => {
     expect(spec.softMax).toBe(2500);
     expect(spec.hardMin).toBe(1600);
     expect(spec.hardMax).toBe(2800);
+  });
+
+  it("builds a conservative length spec for Vietnamese chapters", () => {
+    const spec = buildLengthSpec(2000, "vi");
+
+    expect(spec.countingMode).toBe("vi_words");
+    // scaleRangeDelta: Math.floor(2000 * 300 / 2200) = 272
+    expect(spec.softMin).toBe(2000 - 272);
+    expect(spec.softMax).toBe(2000 + 272);
+    expect(spec.hardMin).toBe(2000 - 545);
+    expect(spec.hardMax).toBe(2000 + 545);
   });
 
   it("scales the conservative bands for smaller targets", () => {

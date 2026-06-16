@@ -20,6 +20,7 @@ import {
   readCharacterContext,
   readCurrentStateWithFallback,
 } from "../utils/outline-paths.js";
+import type { InkOSLanguage } from "../utils/language.js";
 
 export interface AnalyzeChapterInput {
   readonly book: BookConfig;
@@ -215,7 +216,7 @@ export class ChapterAnalyzerAgent extends BaseAgent {
     genreProfile: GenreProfile,
     genreBody: string,
     bookRulesBody: string,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): string {
     if (language === "en") {
       const numericalBlock = genreProfile.numericalSystem
@@ -434,7 +435,7 @@ ${bookRulesBody ? `## 本书规则\n\n${bookRulesBody}` : ""}
   }
 
   private buildUserPrompt(params: {
-    readonly language: "zh" | "en";
+    readonly language: InkOSLanguage;
     readonly chapterNumber: number;
     readonly chapterContent: string;
     readonly chapterTitle?: string;
@@ -503,7 +504,7 @@ ${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params
     chapterIntent: string,
     contextPackage: ContextPackage,
     ruleStack: RuleStack,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): string {
     const selectedContext = contextPackage.selectedContext
       .map((entry) => `- ${entry.source}: ${entry.reason}${entry.excerpt ? ` | ${entry.excerpt}` : ""}`)
@@ -550,7 +551,7 @@ ${overrides}\n`;
   }
 
   private findOutlineNode(volumeOutline: string, chapterNumber: number): string | undefined {
-    if (!volumeOutline || volumeOutline === this.missingFilePlaceholder("zh") || volumeOutline === this.missingFilePlaceholder("en")) {
+    if (!volumeOutline || volumeOutline === this.missingFilePlaceholder("zh") || volumeOutline === this.missingFilePlaceholder("en") || volumeOutline === this.missingFilePlaceholder("vi")) {
       return undefined;
     }
 
@@ -579,7 +580,7 @@ ${overrides}\n`;
       mood: string;
       chapterType: string;
     }>,
-    language: "zh" | "en",
+    language: InkOSLanguage,
   ): string {
     if (summaries.length === 0) {
       return this.missingFilePlaceholder(language);
@@ -616,7 +617,7 @@ ${overrides}\n`;
     return value.replace(/\|/g, "\\|").replace(/\n/g, "<br>");
   }
 
-  private async readFileOrDefault(path: string, language: "zh" | "en"): Promise<string> {
+  private async readFileOrDefault(path: string, language: InkOSLanguage): Promise<string> {
     try {
       return await readFile(path, "utf-8");
     } catch {
@@ -624,11 +625,11 @@ ${overrides}\n`;
     }
   }
 
-  private missingFilePlaceholder(language: "zh" | "en"): string {
+  private missingFilePlaceholder(language: InkOSLanguage): string {
     return language === "en" ? "(file not created yet)" : "(文件尚未创建)";
   }
 
-  private defaultChapterTitle(chapterNumber: number, language: "zh" | "en"): string {
+  private defaultChapterTitle(chapterNumber: number, language: InkOSLanguage): string {
     return language === "en" ? `Chapter ${chapterNumber}` : `第${chapterNumber}章`;
   }
 }

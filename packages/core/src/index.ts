@@ -9,6 +9,77 @@ export { type DetectionHistoryEntry, type DetectionStats } from "./models/detect
 export { type StyleProfile } from "./models/style-profile.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {
+  ResearchConfidenceSchema,
+  ResearchDiscoveryListSchema,
+  ResearchDiscoverySchema,
+  ResearchFactCardSchema,
+  ResearchFactTypeSchema,
+  ResearchPlatformSchema,
+  ResearchQueryResultSchema,
+  ResearchSourceKindSchema,
+  ResearchSourceMetaListSchema,
+  ResearchSourceMetaSchema,
+  ResearchSourceTypeSchema,
+  SourceConfidenceSchema,
+  TranscriptKindSchema,
+  TranscriptResultSchema,
+  TranscriptStatusSchema,
+  type ResearchConfidence,
+  type ResearchDiscovery,
+  type ResearchDiscoveryList,
+  type ResearchFactCard,
+  type ResearchFactType,
+  type ResearchPlatform,
+  type ResearchQueryResult,
+  type ResearchSourceKind,
+  type ResearchSourceMeta,
+  type ResearchSourceMetaList,
+  type ResearchSourceType,
+  type SourceConfidence,
+  type TranscriptKind,
+  type TranscriptResult,
+  type TranscriptStatus,
+} from "./models/research.js";
+export { resolveResearchPaths, type ResearchPaths } from "./research/research-paths.js";
+export {
+  appendResearchFactCards,
+  clearResearchArtifacts,
+  ensureResearchWorkspace,
+  importResearchSourceFile,
+  listResearchSources,
+  readResearchFactCards,
+  saveResearchSources,
+  writeResearchSourceText,
+  type ClearResearchArtifactsOptions,
+  type ClearResearchArtifactsResult,
+  type ImportResearchSourceOptions,
+  type ImportedResearchSource,
+} from "./research/research-store.js";
+export { discoverWithBrave, type BraveDiscoveryResult } from "./research/brave-discovery.js";
+export {
+  classifyResearchUrl,
+  createDiscoveryRecords,
+  type BraveDiscoveryOptions,
+  type BraveSearchFunction,
+  type ClassifiedResearchUrl,
+  type SearchResult,
+  type TranscriptProvider,
+} from "./research/source-acquisition.js";
+export { importVideoTranscriptResult } from "./research/source-importer.js";
+export { createUnavailableTranscriptProvider, UnavailableTranscriptProvider } from "./research/video-transcript.js";
+export {
+  renderResearchContext,
+  retrieveResearchCards,
+  type ResearchQueryInput,
+} from "./research/research-retrieval.js";
+export { createBraveSearchFunction, type BraveApiOptions } from "./research/brave-api.js";
+export {
+  createExternalTranscriptProvider,
+  ExternalTranscriptProvider,
+  parseTranscriptCommandOutput,
+  type ExternalTranscriptProviderOptions,
+} from "./research/external-transcript-provider.js";
+export {
   type RuntimeStateLanguage,
   type StateManifest,
   type HookStatus,
@@ -307,6 +378,12 @@ export { buildSettlerSystemPrompt, buildSettlerUserPrompt } from "./agents/settl
 export { parseSettlementOutput, type SettlementOutput } from "./agents/settler-parser.js";
 export { parseSettlerDeltaOutput, type SettlerDeltaOutput } from "./agents/settler-delta-parser.js";
 export { FanficCanonImporter, type FanficCanonOutput } from "./agents/fanfic-canon-importer.js";
+export {
+  ResearcherAgent,
+  parseResearcherFactCards,
+  type ExtractResearchInput,
+  type ExtractResearchOutput,
+} from "./agents/researcher.js";
 export { getFanficDimensionConfig, FANFIC_DIMENSIONS, type FanficDimensionConfig } from "./agents/fanfic-dimensions.js";
 export { buildFanficCanonSection, buildCharacterVoiceProfiles, buildFanficModeInstructions } from "./agents/fanfic-prompt-sections.js";
 export * from "./prompts/index.js";

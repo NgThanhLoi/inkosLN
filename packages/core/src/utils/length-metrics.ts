@@ -1,6 +1,6 @@
 import type { LengthCountingMode, LengthNormalizeMode, LengthSpec } from "../models/length-governance.js";
 
-export type LengthLanguage = "zh" | "en";
+export type LengthLanguage = "zh" | "en" | "vi";
 
 const REFERENCE_TARGET = 2200;
 const SOFT_RANGE_DELTA = 300;
@@ -17,20 +17,29 @@ export function countChapterLength(
     return words?.length ?? 0;
   }
 
+  if (countingMode === "vi_words") {
+    const words = normalized.match(/[\p{L}]+/gu);
+    return words?.length ?? 0;
+  }
+
   return normalized.replace(/\s+/g, "").length;
 }
 
 export function resolveLengthCountingMode(
   language: LengthLanguage = "zh",
 ): LengthCountingMode {
-  return language === "en" ? "en_words" : "zh_chars";
+  if (language === "en") return "en_words";
+  if (language === "vi") return "vi_words";
+  return "zh_chars";
 }
 
 export function formatLengthCount(
   count: number,
   countingMode: LengthCountingMode,
 ): string {
-  return countingMode === "en_words" ? `${count} words` : `${count}字`;
+  if (countingMode === "en_words") return `${count} words`;
+  if (countingMode === "vi_words") return `${count} từ`;
+  return `${count}字`;
 }
 
 export function buildLengthSpec(

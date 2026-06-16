@@ -142,6 +142,13 @@ export interface LLMClient {
     readonly maxTokensCap?: number | null;
     readonly thinkingBudget: number;
     readonly extra: Record<string, unknown>;
+    /**
+     * Where to inject structural instructions (e.g., section headers for architect):
+     * - "system": place in system message (default, works with most models)
+     * - "user": wrap critical instructions in <EXTREMELY_IMPORTANT> tags and put in user message
+     *           (needed for models that ignore/drop system prompts like some Kimi proxies)
+     */
+    readonly instructionMode?: "system" | "user" | "all-user";
   };
 }
 
@@ -180,6 +187,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
     maxTokens: _earlyCard?.maxOutput ?? UNKNOWN_MODEL_FALLBACK_MAX_TOKENS,
     thinkingBudget: config.thinkingBudget ?? 0,
     extra: config.extra ?? {},
+    instructionMode: config.instructionMode ?? "system",
   };
 
   const apiFormat = config.apiFormat ?? "chat";

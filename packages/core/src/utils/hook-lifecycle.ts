@@ -1,5 +1,6 @@
 import type { HookPayoffTiming } from "../models/runtime-state.js";
 import type { StoredHook } from "../state/memory-db.js";
+import type { InkOSLanguage } from "./language.js";
 import {
   HOOK_ACTIVITY_THRESHOLDS,
   HOOK_PHASE_THRESHOLDS,
@@ -57,7 +58,7 @@ export function isHookWithinChapterWindow(
   return hook.startChapter > chapterNumber && hook.startChapter <= chapterNumber + lookahead;
 }
 
-const LABELS: Record<"zh" | "en", Record<HookPayoffTiming, string>> = {
+const LABELS: Record<InkOSLanguage, Record<HookPayoffTiming, string>> = {
   en: {
     immediate: "immediate",
     "near-term": "near-term",
@@ -71,6 +72,13 @@ const LABELS: Record<"zh" | "en", Record<HookPayoffTiming, string>> = {
     "mid-arc": "中程",
     "slow-burn": "慢烧",
     endgame: "终局",
+  },
+  vi: {
+    immediate: "ngay lập tức",
+    "near-term": "gần hạn",
+    "mid-arc": "giữa chương trình",
+    "slow-burn": "cháy chậm",
+    endgame: "cuối trò chơi",
   },
 };
 
@@ -136,7 +144,7 @@ export function resolveHookPayoffTiming(params: {
 
 export function localizeHookPayoffTiming(
   timing: HookPayoffTiming,
-  language: "zh" | "en",
+  language: InkOSLanguage,
 ): string {
   return LABELS[language][timing];
 }

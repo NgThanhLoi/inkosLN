@@ -18,7 +18,7 @@ export interface StudioBookConfigDraft {
   readonly status: "outlining";
   readonly targetChapters: number;
   readonly chapterWordCount: number;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly createdAt: string;
   readonly updatedAt: string;
 }

@@ -29,7 +29,7 @@ export interface SettlementRetryParams {
   readonly oldHooks: string;
   readonly originalValidation: ValidationResult;
   readonly language: LengthLanguage;
-  readonly logWarn?: (message: { zh: string; en: string }) => void;
+  readonly logWarn?: (message: { zh: string; en: string; vi?: string }) => void;
   readonly logger?: Pick<Logger, "warn">;
 }
 
@@ -50,6 +50,7 @@ export async function retrySettlementAfterValidationFailure(
   params.logWarn?.({
     zh: `状态校验失败，正在仅重试结算层（第${params.chapterNumber}章）`,
     en: `State validation failed; retrying settlement only for chapter ${params.chapterNumber}`,
+    vi: `Kiểm tra trạng thái thất bại; đang thử lại quyết toán cho chương ${params.chapterNumber}`,
   });
 
   const retryOutput = await params.writer.settleChapterState({
@@ -87,6 +88,7 @@ export async function retrySettlementAfterValidationFailure(
     params.logWarn?.({
       zh: `状态校验重试后，第${params.chapterNumber}章仍有 ${retryValidation.warnings.length} 条警告`,
       en: `State validation retry still reports ${retryValidation.warnings.length} warning(s) for chapter ${params.chapterNumber}`,
+      vi: `Thử lại kiểm tra trạng thái vẫn còn ${retryValidation.warnings.length} cảnh báo cho chương ${params.chapterNumber}`,
     });
     for (const warning of retryValidation.warnings) {
       params.logger?.warn(`  [${warning.category}] ${warning.description}`);
