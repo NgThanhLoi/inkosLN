@@ -1,0 +1,23 @@
+"modelOverrides": {
+  "writer": "Kimi-2.6-CB",
+  "reviser": "Kimi-2.6-CB",
+  "short-writer": "Kimi-2.6-CB",
+  "short-revise": "Kimi-2.6-CB",
+  "short-draft-review": "Kimi-2.6-CB",
+
+  "architect": "ocg/deepseek-v4-pro",
+  "auditor": "ocg/deepseek-v4-pro",
+  "fanfic-canon-importer": "ocg/deepseek-v4-pro",
+
+  "planner": "vertex/gemini-3.5-flash",
+  "state-validator": "vertex/gemini-3.5-flash",
+
+  "length-normalizer": "DSV4-Flash",
+  "chapter-analyzer": "DSV4-Flash",
+  "short-outline": "DSV4-Flash",
+  "short-outline-review": "DSV4-Flash",
+  "short-package": "DSV4-Flash",
+
+  "radar": "vx/gemini-3.1-pro-preview",
+  "foundation-reviewer": "vx/gemini-3.1-pro-preview"
+}

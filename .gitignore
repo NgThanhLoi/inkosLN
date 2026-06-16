@@ -18,6 +18,9 @@ test-novel/
 docs/*
 novel-to-comic-research.docx
 .pnpm-store/
+.codegraph/
+build-errors.txt
+package-lock.json
 tmp/
 autoresearch/
 .playwright-cli/
