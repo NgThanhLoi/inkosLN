@@ -16,6 +16,7 @@ test-novel/
 .worktrees/
 .claude/
 docs/*
+!docs/superpowers/
 novel-to-comic-research.docx
 .pnpm-store/
 .codegraph/
