@@ -11,6 +11,88 @@ export function buildSettlerSystemPrompt(
 ): string {
   const resolvedLang = language ?? genreProfile.language;
   const isEnglish = resolvedLang === "en";
+  const isVietnamese = resolvedLang === "vi";
+
+  if (isVietnamese) {
+    const numericalBlock = genreProfile.numericalSystem
+      ? `\n- Truyện này có hệ thống số liệu/tài nguyên, bạn phải theo dõi tất cả biến động tài nguyên xuất hiện trong正文 ở UPDATED_LEDGER
+- Quy tắc tính toán: Đầu kỳ + Tăng = Cuối kỳ, ba mục phải khớp`
+      : `\n- Truyện này không có hệ thống số liệu, UPDATED_LEDGER để trống`;
+
+    const hookRules = `
+## Quy tắc theo dõi gợi ý (thực thi nghiêm ngặt)
+
+- Gợi ý mới: Chỉ khi正文 xuất hiện một vấn đề chưa giải sẽ kéo dài sang chương sau và có hướng thu hồi cụ thể, mới thêm hook_id. Không tạo hook mới cho việc diễn đạt lại, tóm tắt trừu tượng của hook cũ
+- Nhắc đến gợi ý: Hook cũ được nhắc trong chương nhưng không có thông tin mới, không thay đổi hiểu biết của độc giả → cho vào mảng mention, không cập nhật "gần đây đẩy"
+- Đẩy gợi ý: Hook cũ xuất hiện sự thật mới, chứng cứ, thay đổi quan hệ, rủi ro leo thang hoặc thu hẹp phạm vi → **bắt buộc** cập nhật cột "gần đây đẩy" thành số chương hiện tại, cập nhật trạng thái và ghi chú
+- Thu hồi gợi ý: Hook được tiết lộ rõ ràng, giải quyết, hoặc không còn giá trị → Trạng thái đổi thành "đã thu hồi", ghi chú cách thu hồi
+- Trì hoãn gợi ý: Chỉ khi chính văn rõ ràng cho thấy tuyến này bị chủ động gác lại, chuyển vào hậu trường, hoặc bị cốt truyện nén lại, mới đánh dấu "trì hoãn"; không vì "đã qua vài chương" mà máy móc trì hoãn
+- Tuyến chưa giải mới: Không tự sáng tạo hookId. Đưa ứng viên vào newHookCandidates, để hệ thống quyết định nó ánh xạ vào hook cũ, thành hook mới, hay bị từ chối
+- payoffTiming dùng nhịp ngữ nghĩa, không ghi số chương cứng: chỉ cho phép immediate / near-term / mid-arc / slow-burn / endgame
+- **Quy tắc sắt**: Không coi "nhắc lại""đổi cách nói""ôn tập trừu tượng" là đẩy. Chỉ khi trạng thái thực sự thay đổi mới cập nhật. Chỉ xuất hiện hook cũ thì cho vào mảng mention`;
+
+    const fullCastBlock = bookRules?.enableFullCastTracking
+      ? `\n## Theo dõi toàn bộ\nPOST_SETTLEMENT phải bao gồm thêm: Danh sách nhân vật xuất hiện chương này, biến động quan hệ, nhân vật được nhắc nhưng không xuất hiện.`
+      : "";
+
+    const langPrefix = `【BẮT BUỘC TIẾNG VIỆT】TẤT CẢ đầu ra (thẻ trạng thái, gợi ý, tóm tắt, tuyến phụ, cung cảm xúc, ma trận nhân vật) PHẢI bằng tiếng Việt. Các dấu === TAG === giữ nguyên không đổi.\n\n`;
+
+    return `${langPrefix}Bạn là nhà phân tích theo dõi trạng thái. Được cung cấp chính văn chương mới và các tệp sự thật hiện tại, nhiệm vụ của bạn là tạo ra các tệp sự thật đã cập nhật.
+
+## Chế độ làm việc
+
+Bạn không viết văn. Nhiệm vụ của bạn:
+1. Đọc kỹ chính văn, trích xuất tất cả thay đổi trạng thái
+2. Dựa trên "tệp theo dõi hiện tại" để cập nhật tăng thêm
+3. Tuân thủ nghiêm ngặt định dạng === TAG ===
+
+## Chiều phân tích
+
+Từ chính văn trích xuất:
+- Nhân vật xuất hiện, rút lui, thay đổi trạng thái (bị thương/đột phá/tử vong v.v.)
+- Di chuyển vị trí, chuyển cảnh
+- Vật phẩm/tài nguyên nhận được và tiêu hao
+- Gieo, đẩy, thu hồi gợi ý
+- Biến động cung cảm xúc
+- Tiến triển tuyến phụ
+- Thay đổi quan hệ nhân vật, biên giới thông tin mới
+
+## Thông tin sách
+
+- Tiêu đề: ${book.title}
+- Thể loại: ${genreProfile.name} (${book.genre})
+- Nền tảng: ${book.platform}
+${numericalBlock}
+${hookRules}${fullCastBlock}
+
+## Định dạng xuất (bắt buộc tuân thủ nghiêm ngặt)
+
+**QUAN TRỌNG: Bạn PHẢI xuất cả hai khối sau:**
+1. \`=== POST_SETTLEMENT ===\` — ghi chú tóm tắt bằng tiếng Việt
+2. \`=== RUNTIME_STATE_DELTA ===\` — **đối tượng JSON hợp lệ** trong hàng rào code \`\`\`json...\`\`\`
+
+Các khóa JSON (chapter, currentStatePatch, hookOps, newHookCandidates, chapterSummary, v.v.) PHẢI giữ nguyên bằng tiếng Anh. Giá trị chuỗi có thể viết bằng tiếng Việt. KHÔNG thêm văn bản ngoài hàng rào JSON sau khi hoàn thành.
+
+${buildSettlerOutputFormat(genreProfile, "vi")}
+
+## Quy tắc then chốt
+
+1. Thẻ trạng thái và bể gợi ý phải dựa trên "tệp theo dõi hiện tại" để cập nhật tăng thêm, không bắt đầu từ con số không
+2. Mỗi thay đổi sự thật trong chính văn đều phải phản ánh trong tệp theo dõi tương ứng
+3. Không bỏ sót chi tiết: Biến động số liệu, thay đổi vị trí, biến động quan hệ, biến động thông tin đều phải ghi nhận
+4. "Biên giới thông tin" trong ma trận tương tác nhân vật phải chính xác — nhân vật chỉ biết chuyện xảy ra khi họ có mặt
+
+## Quy tắc sắt: Chỉ ghi lại sự thật trong chính văn (thực thi nghiêm ngặt)
+
+- **Chỉ trích xuất sự kiện và thay đổi trạng thái được mô tả rõ ràng trong chính văn**. Không suy luận, dự đoán, hoặc bổ sung chính văn không viết đến
+- Nếu chính văn chỉ viết nhân vật đi đến cửa chưa vào, thẻ trạng thái không được viết "nhân vật đã vào phòng"
+- Nếu chính văn chỉ ám chỉ khả năng chưa xác nhận, không ghi nhận như sự thật đã xảy ra
+- Không bổ sung từ cuốn cương hoặc đại cương cốt truyện mà chính văn chưa đạt đến
+- Không xóa hoặc sửa nội dung không liên quan đến chương này trong hooks hiện có — chỉ cập nhật hooks liên quan đến chính văn chương này
+- Chương 1 đặc biệt lưu ý: Tệp theo dõi ban đầu có thể chứa nội dung pre-sinh từ đại cương, chỉ giữ lại phần chính văn thực tế ủng hộ
+- **Ngoại lệ gợi ý**: Câu hỏi chưa giải, huyền niệm, manh mối gợi ý xuất hiện trong chính văn phải được ghi nhận trong hooks. Đây không phải "suy luận" mà là "trích xuất lời hứa tự sự từ chính văn". Nếu chính văn ám chỉ một bí ẩn/xung đột/bí mật nhưng chưa giải, đó là một hook, phải ghi nhận`;
+  }
+
   const numericalBlock = genreProfile.numericalSystem
     ? `\n- 本题材有数值/资源体系，你必须在 UPDATED_LEDGER 中追踪正文中出现的所有资源变动
 - 数值验算铁律：期初 + 增量 = 期末，三项必须可验算`
@@ -86,10 +168,82 @@ ${buildSettlerOutputFormat(genreProfile)}
 - **伏笔例外**：正文中出现的未解疑问、悬念、伏笔线索必须在 hooks 中记录。这不是"推断"，而是"提取正文中的叙事承诺"。如果正文暗示了一个谜题/冲突/秘密但没有解答，那就是一个 hook，必须记录`;
 }
 
-function buildSettlerOutputFormat(gp: GenreProfile): string {
+function buildSettlerOutputFormat(gp: GenreProfile, language?: string): string {
+  const isVi = language === "vi";
   const chapterTypeExample = gp.chapterTypes.length > 0
     ? gp.chapterTypes[0]
-    : "主线推进";
+    : isVi ? "tuyến chính" : "主线推进";
+
+  if (isVi) {
+    return `=== POST_SETTLEMENT ===
+(Tóm tắt ngắn gọn các thay đổi trạng thái, tiến triển gợi ý, lưu ý kết toán; có thể dùng bảng Markdown hoặc gạch đầu dòng)
+
+=== RUNTIME_STATE_DELTA ===
+(Bắt buộc xuất JSON, không xuất Markdown, không thêm giải thích)
+\`\`\`json
+{
+  "chapter": 12,
+  "currentStatePatch": {
+    "currentLocation": "tùy chọn",
+    "protagonistState": "tùy chọn",
+    "currentGoal": "tùy chọn",
+    "currentConstraint": "tùy chọn",
+    "currentAlliances": "tùy chọn",
+    "currentConflict": "tùy chọn"
+  },
+  "hookOps": {
+    "upsert": [
+      {
+        "hookId": "loi-hua-su-phu",
+        "startChapter": 8,
+        "type": "relationship",
+        "status": "progressing",
+        "lastAdvancedChapter": 12,
+        "expectedPayoff": "vén màn bí mật món nợ sư phụ",
+        "payoffTiming": "slow-burn",
+        "notes": "lý do đẩy/trì hoãn/thu hồi chương này"
+      }
+    ],
+    "mention": ["hookId chỉ được nhắc đến, không có tiến triển thực"],
+    "resolve": ["hookId đã thu hồi"],
+    "defer": ["hookId cần đánh dấu trì hoãn"]
+  },
+  "newHookCandidates": [
+    {
+      "type": "mystery",
+      "expectedPayoff": "gợi ý mới sẽ thu hồi ở đâu",
+      "payoffTiming": "near-term",
+      "notes": "tại sao chương này hình thành vấn đề chưa giải mới"
+    }
+  ],
+  "chapterSummary": {
+    "chapter": 12,
+    "title": "tiêu đề chương",
+    "characters": "nhân vật 1, nhân vật 2",
+    "events": "một câu tóm tắt sự kiện chính",
+    "stateChanges": "một câu tóm tắt thay đổi trạng thái",
+    "hookActivity": "loi-hua-su-phu advanced",
+    "mood": "căng thẳng",
+    "chapterType": "${chapterTypeExample}"
+  },
+  "subplotOps": [],
+  "emotionalArcOps": [],
+  "characterMatrixOps": [],
+  "notes": []
+}
+\`\`\`
+
+Quy tắc:
+1. Chỉ xuất delta (thay đổi), không viết lại đầy đủ truth files
+2. Tất cả trường số chương đều phải là số nguyên, không viết ngôn ngữ tự nhiên
+3. hookOps.upsert chỉ được viết hookId "đã tồn tại trong bể gợi ý hiện tại", không được phát minh hookId mới
+4. Tuyến chưa giải mới đều viết vào newHookCandidates, không tự tạo hookId
+5. Nếu hook cũ chỉ được nhắc đến, không có thay đổi trạng thái thực, đưa vào mention, không cập nhật lastAdvancedChapter
+6. Nếu chương này đẩy hook cũ, lastAdvancedChapter phải bằng số chương hiện tại
+7. Nếu thu hồi hoặc trì hoãn hook, phải đặt vào mảng resolve / defer
+8. chapterSummary.chapter phải bằng số chương hiện tại
+9. **Khóa JSON giữ nguyên tiếng Anh** (chapter, currentStatePatch, hookOps, newHookCandidates, chapterSummary). Giá trị chuỗi có thể viết tiếng Việt.`;
+  }
 
   return `=== POST_SETTLEMENT ===
 （简要说明本章有哪些状态变动、伏笔推进、结算注意事项；允许 Markdown 表格或要点）
@@ -152,7 +306,7 @@ function buildSettlerOutputFormat(gp: GenreProfile): string {
 规则：
 1. 只输出增量，不要重写完整 truth files
 2. 所有章节号字段都必须是整数，不能写自然语言
-3. hookOps.upsert 里只能写“当前伏笔池里已经存在”的 hookId，不允许发明新的 hookId
+3. hookOps.upsert 里只能写"当前伏笔池里已经存在"的 hookId，不允许发明新的 hookId
 4. brand-new unresolved thread 一律写进 newHookCandidates，不要自造 hookId
 5. 如果旧 hook 只是被提到、没有真实状态变化，把它放进 mention，不要更新 lastAdvancedChapter
 6. 如果本章推进了旧 hook，lastAdvancedChapter 必须等于当前章号
@@ -176,40 +330,63 @@ export function buildSettlerUserPrompt(params: {
   readonly selectedEvidenceBlock?: string;
   readonly governedControlBlock?: string;
   readonly validationFeedback?: string;
+  readonly language?: string;
 }): string {
+  const isVi = params.language === "vi";
+
   const ledgerBlock = params.ledger
-    ? `\n## 当前资源账本\n${params.ledger}\n`
+    ? `\n## ${isVi ? "Sổ tài nguyên hiện tại" : "当前资源账本"}\n${params.ledger}\n`
     : "";
 
   const summariesBlock = params.chapterSummaries !== "(文件尚未创建)"
-    ? `\n## 已有章节摘要\n${params.chapterSummaries}\n`
+    ? `\n## ${isVi ? "Tóm tắt chương đã có" : "已有章节摘要"}\n${params.chapterSummaries}\n`
     : "";
 
   const subplotBlock = params.subplotBoard !== "(文件尚未创建)"
-    ? `\n## 当前支线进度板\n${params.subplotBoard}\n`
+    ? `\n## ${isVi ? "Bảng tiến độ tuyến phụ hiện tại" : "当前支线进度板"}\n${params.subplotBoard}\n`
     : "";
 
   const emotionalBlock = params.emotionalArcs !== "(文件尚未创建)"
-    ? `\n## 当前情感弧线\n${params.emotionalArcs}\n`
+    ? `\n## ${isVi ? "Cung cảm xúc hiện tại" : "当前情感弧线"}\n${params.emotionalArcs}\n`
     : "";
 
   const matrixBlock = params.characterMatrix !== "(文件尚未创建)"
-    ? `\n## 当前角色交互矩阵\n${params.characterMatrix}\n`
+    ? `\n## ${isVi ? "Ma trận tương tác nhân vật hiện tại" : "当前角色交互矩阵"}\n${params.characterMatrix}\n`
     : "";
 
   const observationsBlock = params.observations
-    ? `\n## 观察日志（由 Observer 提取，包含本章所有事实变化）\n${params.observations}\n\n基于以上观察日志和正文，更新所有追踪文件。确保观察日志中的每一项变化都反映在对应的文件中。\n`
+    ? `\n## ${isVi ? "Nhật ký quan sát (do Observer trích xuất, chứa tất cả thay đổi sự thật chương này)" : "观察日志（由 Observer 提取，包含本章所有事实变化）"}\n${params.observations}\n\n${isVi ? "Dựa trên nhật ký quan sát và chính văn trên, cập nhật tất cả tệp theo dõi. Đảm bảo mỗi thay đổi trong nhật ký đều phản ánh trong tệp tương ứng." : "基于以上观察日志和正文，更新所有追踪文件。确保观察日志中的每一项变化都反映在对应的文件中。"}\n`
     : "";
   const selectedEvidenceBlock = params.selectedEvidenceBlock
-    ? `\n## 已选长程证据\n${params.selectedEvidenceBlock}\n`
+    ? `\n## ${isVi ? "Bằng chứng dài hạn đã chọn" : "已选长程证据"}\n${params.selectedEvidenceBlock}\n`
     : "";
   const controlBlock = params.governedControlBlock ?? "";
   const outlineBlock = controlBlock.length === 0
-    ? `\n## 卷纲\n${params.volumeOutline}\n`
+    ? `\n## ${isVi ? "Cuốn cương" : "卷纲"}\n${params.volumeOutline}\n`
     : "";
   const validationFeedbackBlock = params.validationFeedback
-    ? `\n## 状态校验反馈\n${params.validationFeedback}\n\n请严格纠正这些矛盾，只修正 truth files，不要改写正文，不要引入正文中不存在的新事实。\n`
+    ? `\n## ${isVi ? "Phản hồi xác thực trạng thái" : "状态校验反馈"}\n${params.validationFeedback}\n\n${isVi ? "Hãy sửa nghiêm ngặt các mâu thuẫn này, chỉ chỉnh sửa tệp sự thật, không sửa正文, không đưa vào sự thật mới không tồn tại trong正文." : "请严格纠正这些矛盾，只修正 truth files，不要改写正文，不要引入正文中不存在的新事实。"}\n`
     : "";
+
+  if (isVi) {
+    return `Hãy phân tích正文 chương ${params.chapterNumber}「${params.title}」, cập nhật tất cả tệp theo dõi.
+${observationsBlock}
+${validationFeedbackBlock}
+## Chính văn chương này
+
+${params.content}
+${controlBlock}
+
+## Thẻ trạng thái hiện tại
+${params.currentState}
+${ledgerBlock}
+## Bể gợi ý hiện tại
+${params.hooks}
+${selectedEvidenceBlock}${summariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}
+${outlineBlock}
+
+Hãy tuân thủ nghiêm ngặt định dạng === TAG === để xuất kết quả kết toán.`;
+  }
 
   return `请分析第${params.chapterNumber}章「${params.title}」的正文，更新所有追踪文件。
 ${observationsBlock}

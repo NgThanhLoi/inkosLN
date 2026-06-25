@@ -387,10 +387,20 @@ export class PlannerAgent extends BaseAgent {
       "explicit override",
       "chapter override",
       "local task override",
+      // Vietnamese headings
+      "mục tiêu",
+      "mục tiêu chương",
+      "chương tiếp theo",
+      "chương kế tiếp",
+      "kế hoạch chương",
+      // Chinese headings
       "局部覆盖",
       "本章覆盖",
       "临时覆盖",
       "当前覆盖",
+      "目标",
+      "章节目标",
+      "下一章",
     ]);
     if (!overrideSection) {
       return undefined;

@@ -111,6 +111,16 @@ export function validatePostWrite(
     });
   }
 
+  const characterInitialHits = isVietnamese ? findVietnameseCharacterInitials(content) : [];
+  if (characterInitialHits.length > 0) {
+    violations.push({
+      rule: "viết tắt tên nhân vật",
+      severity: "error",
+      description: `Chính văn dùng viết tắt tên/khái niệm thay cho tên đầy đủ: ${characterInitialHits.map(v => `"${v}"`).join(", ")}`,
+      suggestion: "Viết đầy đủ tên nhân vật hoặc dùng đại từ tự nhiên như 'hắn', 'nàng', 'ông', 'bà'. Không dùng LTU, TDQ, TMD, TTQ trong prose.",
+    });
+  }
+
   // Skip Chinese-specific rules for English content
   const isEnglish = resolvedLanguage === "en";
   if (isEnglish) {
@@ -340,6 +350,27 @@ function findForbiddenProperNameVariants(
     if (content.includes(trimmed) && !seen.has(trimmed)) {
       seen.add(trimmed);
       hits.push(trimmed);
+    }
+  }
+  return hits;
+}
+
+function findVietnameseCharacterInitials(content: string): string[] {
+  const hits: string[] = [];
+  const seen = new Set<string>();
+  const whitelist = new Set([
+    "POV", "AI", "NPC", "HP", "MP", "EXP", "UI", "API", "PDF",
+    "HTML", "CSS", "URL", "ID", "IP", "TV", "OK",
+    "PRE_WRITE_CHECK", "POST_SETTLEMENT",
+  ]);
+  // Strip meta lines before scanning
+  const cleaned = content.replace(/^\s*(?:PRE_WRITE_CHECK|POST_SETTLEMENT|##.*|###.*|>.*|-\s.*).*$\n?/gm, "");
+  for (const match of cleaned.matchAll(/\b[A-ZĐ]{2,5}\b/g)) {
+    const token = match[0]!;
+    if (whitelist.has(token)) continue;
+    if (!seen.has(token)) {
+      seen.add(token);
+      hits.push(token);
     }
   }
   return hits;

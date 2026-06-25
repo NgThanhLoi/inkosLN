@@ -87,7 +87,7 @@ export abstract class BaseAgent {
 
   protected async chat(
     messages: ReadonlyArray<LLMMessage>,
-    options?: { readonly temperature?: number; readonly maxTokens?: number },
+    options?: { readonly temperature?: number; readonly maxTokens?: number; readonly reasoningEffort?: string },
   ): Promise<LLMResponse> {
     return chatCompletion(this.ctx.client, this.ctx.model, this.applyInstructionMode(messages), {
       ...options,

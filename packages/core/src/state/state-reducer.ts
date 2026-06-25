@@ -192,20 +192,29 @@ function applyCurrentStatePatch(
   const nextFacts = [...currentState.facts];
   const labels = language === "en"
     ? {
-      currentLocation: ["Current Location", "当前位置"],
-      protagonistState: ["Protagonist State", "主角状态"],
-      currentGoal: ["Current Goal", "当前目标"],
-      currentConstraint: ["Current Constraint", "当前限制"],
-      currentAlliances: ["Current Alliances", "Current Relationships", "当前敌我"],
-      currentConflict: ["Current Conflict", "当前冲突"],
+      currentLocation: ["Current Location", "当前位置", "Vị trí hiện tại"],
+      protagonistState: ["Protagonist State", "主角状态", "Trạng thái nhân vật chính"],
+      currentGoal: ["Current Goal", "当前目标", "Mục tiêu hiện tại"],
+      currentConstraint: ["Current Constraint", "当前限制", "Hạn chế hiện tại"],
+      currentAlliances: ["Current Alliances", "Current Relationships", "当前敌我", "Đồng minh hiện tại"],
+      currentConflict: ["Current Conflict", "当前冲突", "Xung đột hiện tại"],
+    }
+    : language === "vi"
+    ? {
+      currentLocation: ["Vị trí hiện tại", "当前位置", "Current Location"],
+      protagonistState: ["Trạng thái nhân vật chính", "主角状态", "Protagonist State"],
+      currentGoal: ["Mục tiêu hiện tại", "当前目标", "Current Goal"],
+      currentConstraint: ["Hạn chế hiện tại", "当前限制", "Current Constraint"],
+      currentAlliances: ["Đồng minh hiện tại", "当前敌我", "Current Alliances", "Current Relationships"],
+      currentConflict: ["Xung đột hiện tại", "当前冲突", "Current Conflict"],
     }
     : {
-      currentLocation: ["当前位置", "Current Location"],
-      protagonistState: ["主角状态", "Protagonist State"],
-      currentGoal: ["当前目标", "Current Goal"],
-      currentConstraint: ["当前限制", "Current Constraint"],
-      currentAlliances: ["当前敌我", "Current Alliances", "Current Relationships"],
-      currentConflict: ["当前冲突", "Current Conflict"],
+      currentLocation: ["当前位置", "Current Location", "Vị trí hiện tại"],
+      protagonistState: ["主角状态", "Protagonist State", "Trạng thái nhân vật chính"],
+      currentGoal: ["当前目标", "Current Goal", "Mục tiêu hiện tại"],
+      currentConstraint: ["当前限制", "Current Constraint", "Hạn chế hiện tại"],
+      currentAlliances: ["当前敌我", "Current Alliances", "Current Relationships", "Đồng minh hiện tại"],
+      currentConflict: ["当前冲突", "Current Conflict", "Xung đột hiện tại"],
     };
 
   for (const [patchKey, aliases] of Object.entries(labels) as Array<[

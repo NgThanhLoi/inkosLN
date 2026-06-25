@@ -659,7 +659,7 @@ export class WriterAgent extends BaseAgent {
         { role: "system", content: observerSystem },
         { role: "user", content: observerUser },
       ],
-      { temperature: 0.5 },
+      { temperature: 0.5, reasoningEffort: "none" },
     );
     const observations = observerResponse.content;
 
@@ -705,6 +705,7 @@ export class WriterAgent extends BaseAgent {
       selectedEvidenceBlock: params.selectedEvidenceBlock,
       governedControlBlock,
       validationFeedback: params.validationFeedback,
+      language: resolvedLang,
     });
 
     const response = await this.chat(
@@ -712,7 +713,7 @@ export class WriterAgent extends BaseAgent {
         { role: "system", content: settlerSystem },
         { role: "user", content: settlerUser },
       ],
-      { temperature: 0.3 },
+      { temperature: 0.3, reasoningEffort: "none" },
     );
 
     let mergedSettlement: ReturnType<typeof parseSettlementOutput> & {
@@ -732,7 +733,10 @@ export class WriterAgent extends BaseAgent {
         updatedEmotionalArcs: "",
         updatedCharacterMatrix: "",
       };
-    } catch {
+    } catch (deltaError) {
+      console.error(`[SETTLER-DELTA-PARSE-FAIL] chapter=${params.chapterNumber} error=${String(deltaError)}`);
+      // Dump the first 2000 chars of raw settler output for debugging
+      console.error(`[SETTLER-RAW-OUTPUT] ${response.content.slice(0, 2000)}`);
       const settlement = parseSettlementOutput(response.content, params.genreProfile);
       mergedSettlement = governedControlBlock
         ? {
@@ -823,17 +827,29 @@ export class WriterAgent extends BaseAgent {
 
   private isStatePlaceholder(value: string | undefined): boolean {
     const trimmed = value?.trim();
-    return !trimmed || trimmed === "(状态卡未更新)" || trimmed === "(state card not updated)";
+    return !trimmed
+      || trimmed === "(状态卡未更新)"
+      || trimmed === "(state card not updated)"
+      || trimmed === "(thẻ trạng thái chưa cập nhật)"
+      || trimmed === "(thẻ trạng thái không được cập nhật)";
   }
 
   private isHooksPlaceholder(value: string | undefined): boolean {
     const trimmed = value?.trim();
-    return !trimmed || trimmed === "(伏笔池未更新)" || trimmed === "(hooks pool not updated)";
+    return !trimmed
+      || trimmed === "(伏笔池未更新)"
+      || trimmed === "(hooks pool not updated)"
+      || trimmed === "(bể gợi ý chưa cập nhật)"
+      || trimmed === "(bể gợi ý không được cập nhật)";
   }
 
   private isLedgerPlaceholder(value: string | undefined): boolean {
     const trimmed = value?.trim();
-    return !trimmed || trimmed === "(账本未更新)" || trimmed === "(ledger not updated)";
+    return !trimmed
+      || trimmed === "(账本未更新)"
+      || trimmed === "(ledger not updated)"
+      || trimmed === "(sổ tài nguyên chưa cập nhật)"
+      || trimmed === "(sổ tài nguyên không được cập nhật)";
   }
 
   private buildUserPrompt(params: {
@@ -1166,9 +1182,9 @@ ${overrides}\n`;
     }
 
     const missing: string[] = [];
-    if (!preWriteCheck.includes("当前任务")) missing.push("当前任务");
-    if (!preWriteCheck.includes("不要做")) missing.push("不要做");
-    if (!preWriteCheck.includes("章尾")) missing.push("章尾必须发生的改变");
+    if (!preWriteCheck.includes("当前任务") && !preWriteCheck.includes("Current task") && !preWriteCheck.includes("Nhiệm vụ hiện tại")) missing.push("当前任务");
+    if (!preWriteCheck.includes("不要做") && !preWriteCheck.includes("Do not") && !preWriteCheck.includes("Không được làm")) missing.push("不要做");
+    if (!preWriteCheck.includes("章尾") && !preWriteCheck.includes("end-of-chapter") && !preWriteCheck.includes("cuối chương")) missing.push("章尾必须发生的改变");
 
     if (missing.length > 0) {
       this.logWarn(language, {

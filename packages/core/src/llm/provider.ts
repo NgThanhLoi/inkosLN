@@ -502,13 +502,9 @@ function shouldUseNativeCustomTransport(client: LLMClient): boolean {
     return true;
   }
   if (client.service === "custom") {
-    if (
-      client.configSource === "studio"
-      && (client.provider === "openai" || client.provider === "anthropic")
-    ) {
+    if (client.provider === "openai" || client.provider === "anthropic") {
       return true;
     }
-    return client.provider === "openai" && shouldUseNativeLocalOpenAICompatibleTransport(client);
   }
   return client.service === "ollama"
     && client.provider === "openai"
@@ -666,7 +662,10 @@ function extractOpenAITextPart(value: any): string {
 
 function extractChatContent(json: any): string {
   const message = json?.choices?.[0]?.message;
-  return extractOpenAITextPart(message?.content) || extractOpenAITextPart(message?.reasoning_content);
+  // Some proxies (Zen Go, proxy 20128) use `reasoning` instead of `reasoning_content`
+  return extractOpenAITextPart(message?.content)
+    || extractOpenAITextPart(message?.reasoning_content)
+    || extractOpenAITextPart(message?.reasoning);
 }
 
 function extractChatDeltaContent(json: any): string {
@@ -674,7 +673,10 @@ function extractChatDeltaContent(json: any): string {
 }
 
 function extractChatDeltaReasoningContent(json: any): string {
-  return extractOpenAITextPart(json?.choices?.[0]?.delta?.reasoning_content);
+  const delta = json?.choices?.[0]?.delta;
+  // Some proxies (Zen Go, proxy 20128) use `reasoning` instead of `reasoning_content`
+  return extractOpenAITextPart(delta?.reasoning_content)
+    || extractOpenAITextPart(delta?.reasoning);
 }
 
 function extractResponsesContent(json: any): string {
@@ -808,6 +810,7 @@ async function chatCompletionViaCustomOpenAICompatible(
   onStreamProgress?: OnStreamProgress,
   onTextDelta?: (text: string) => void,
   allowSystemRoleFallback = true,
+  reasoningEffort?: string,
 ): Promise<LLMResponse> {
   if (client.provider === "anthropic") {
     return chatCompletionViaCustomAnthropicCompatible(client, model, messages, resolved, onStreamProgress, onTextDelta);
@@ -825,6 +828,7 @@ async function chatCompletionViaCustomOpenAICompatible(
       store: false,
       max_output_tokens: resolved.maxTokens,
       temperature: resolved.temperature,
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
       ...extra,
     };
     const instructions = joinSystemPrompt(messages);
@@ -911,8 +915,16 @@ async function chatCompletionViaCustomOpenAICompatible(
     stream: client.stream,
     temperature: resolved.temperature,
     max_tokens: resolved.maxTokens,
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     ...extra,
   };
+
+  // Note: thinking/reasoning mode is left enabled by default. The streaming
+  // code reads both delta.content and delta.reasoning (some proxies use the
+  // latter instead of delta.reasoning_content) so progress is tracked during
+  // the thinking phase, and actual content is captured when the model starts
+  // writing. The final output uses content || reasoningContent as fallback.
+
   if (client.stream) {
     payload.stream_options = { include_usage: true };
   }
@@ -1015,6 +1027,7 @@ export async function chatCompletion(
     readonly temperature?: number;
     readonly maxTokens?: number;
     readonly webSearch?: boolean;
+    readonly reasoningEffort?: string;
     readonly onStreamProgress?: OnStreamProgress;
     readonly onTextDelta?: (text: string) => void;
   },
@@ -1031,13 +1044,14 @@ export async function chatCompletion(
   };
   const onStreamProgress = options?.onStreamProgress;
   const onTextDelta = options?.onTextDelta;
+  const reasoningEffort = options?.reasoningEffort;
   const errorCtx = { baseUrl: client._piModel?.baseUrl ?? "(unknown)", model, service: client.service };
 
   try {
     return await withTransientLLMRetry(
       async () => {
         if (shouldUseNativeCustomTransport(client)) {
-          return chatCompletionViaCustomOpenAICompatible(client, model, messages, resolved, onStreamProgress, onTextDelta);
+          return chatCompletionViaCustomOpenAICompatible(client, model, messages, resolved, onStreamProgress, onTextDelta, true, reasoningEffort);
         }
         return chatCompletionViaPiAi(client, model, messages, resolved, onStreamProgress, onTextDelta);
       },

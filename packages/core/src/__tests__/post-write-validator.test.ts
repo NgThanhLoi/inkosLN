@@ -215,6 +215,26 @@ describe("validatePostWrite", () => {
     expect(violation?.suggestion).toContain("tên chuẩn");
   });
 
+  it("detects character initials in Vietnamese prose", () => {
+    const content = "LTU bước tới sân sau. TDO nhìn hắn một lát rồi quay đi.";
+
+    const result = validatePostWrite(content, { ...baseProfile, language: "vi" }, null, "vi");
+
+    const violation = findRule(result, "viết tắt tên nhân vật");
+    expect(violation).toBeDefined();
+    expect(violation?.severity).toBe("error");
+    expect(violation?.description).toContain("LTU");
+    expect(violation?.description).toContain("TDO");
+  });
+
+  it("does not flag standard meta abbreviations in Vietnamese prose", () => {
+    const content = "POV của nhân vật chính. Hắn bước tới. AI có thể hiểu lầm.";
+
+    const result = validatePostWrite(content, { ...baseProfile, language: "vi" }, null, "vi");
+
+    expect(findRule(result, "viết tắt tên nhân vật")).toBeUndefined();
+  });
+
   it("does not flag allowed content", () => {
     // Content that is clean across all rules
     const content = `他站起来，环顾四周。窗外的月光洒在地板上，像一层薄薄的霜。\n\n\u201c走吧。\u201d她转身推开门。冷风从缝隙里钻进来，她裹紧了衣服。`;

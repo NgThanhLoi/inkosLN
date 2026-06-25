@@ -18,7 +18,11 @@ export function renderHooksProjection(
   language: InkOSLanguage = "zh",
   options?: { readonly currentChapter?: number },
 ): string {
-  const title = language === "en" ? "# Pending Hooks" : "# 伏笔池";
+  const title = language === "en"
+    ? "# Pending Hooks"
+    : language === "vi"
+    ? "# Bể gợi ý"
+    : "# 伏笔池";
   // Phase 7 + hotfixes 1 & 2: depends_on / pays_off_in_arc / core_hook / half_life / promoted
   // are visible columns, so writer and reviewer both see the causal chain, planned payoff arc,
   // stale threshold, and promotion flag. stale / blocked diagnostic flags are appended to the
@@ -26,6 +30,11 @@ export function renderHooksProjection(
   const headers = language === "en"
     ? [
       "| hook_id | start_chapter | type | status | last_advanced_chapter | expected_payoff | payoff_timing | depends_on | pays_off_in_arc | core_hook | half_life | promoted | notes |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    : language === "vi"
+    ? [
+      "| hook_id | chương bắt đầu | loại | trạng thái | đẩy gần nhất | dự kiến thu hồi | nhịp thu hồi | phụ thuộc | thu hồi trong arc | cốt lõi | chu kỳ | nâng cấp | ghi chú |",
       "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     : [
@@ -73,12 +82,13 @@ export function renderHooksProjection(
 }
 
 function renderDependsOnCell(ids: ReadonlyArray<string>, language: InkOSLanguage): string {
-  if (ids.length === 0) return language === "en" ? "none" : "无";
+  if (ids.length === 0) return language === "en" ? "none" : language === "vi" ? "không" : "无";
   return `[${ids.join(", ")}]`;
 }
 
 function renderCoreHookCell(isCore: boolean, language: InkOSLanguage): string {
   if (language === "en") return isCore ? "true" : "false";
+  if (language === "vi") return isCore ? "có" : "không";
   return isCore ? "是" : "否";
 }
 
@@ -90,6 +100,7 @@ function renderHalfLifeCell(value: number | undefined): string {
 function renderPromotedCell(value: boolean | undefined, language: InkOSLanguage): string {
   if (value === undefined) return "";
   if (language === "en") return value ? "true" : "false";
+  if (language === "vi") return value ? "có" : "không";
   return value ? "是" : "否";
 }
 
@@ -97,10 +108,19 @@ export function renderChapterSummariesProjection(
   state: ChapterSummariesState,
   language: InkOSLanguage = "zh",
 ): string {
-  const title = language === "en" ? "# Chapter Summaries" : "# 章节摘要";
+  const title = language === "en"
+    ? "# Chapter Summaries"
+    : language === "vi"
+    ? "# Tóm tắt chương"
+    : "# 章节摘要";
   const headers = language === "en"
     ? [
       "| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    : language === "vi"
+    ? [
+      "| Chương | Tiêu đề | Nhân vật | Sự kiện chính | Thay đổi trạng thái | Hoạt động gợi ý | Tâm trạng | Loại chương |",
       "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     : [
@@ -146,6 +166,22 @@ export function renderCurrentStateProjection(
       placeholders: "(not set)",
       additionalTitle: "## Additional State",
     }
+    : language === "vi"
+    ? {
+      title: "# Trạng thái hiện tại",
+      tableHeader: "| Trường | Giá trị |",
+      labels: {
+        chapter: "Chương hiện tại",
+        location: "Vị trí hiện tại",
+        protagonistState: "Trạng thái nhân vật chính",
+        goal: "Mục tiêu hiện tại",
+        constraint: "Giới hạn hiện tại",
+        alliances: "Đồng minh / Đối thủ",
+        conflict: "Xung đột hiện tại",
+      },
+      placeholders: "(chưa đặt)",
+      additionalTitle: "## Trạng thái bổ sung",
+    }
     : {
       title: "# 当前状态",
       tableHeader: "| 字段 | 值 |",
@@ -165,27 +201,27 @@ export function renderCurrentStateProjection(
   const slots = [
     {
       label: layout.labels.location,
-      aliases: ["Current Location", "当前位置"],
+      aliases: ["Current Location", "当前位置", "Vị trí hiện tại"],
     },
     {
       label: layout.labels.protagonistState,
-      aliases: ["Protagonist State", "主角状态"],
+      aliases: ["Protagonist State", "主角状态", "Trạng thái nhân vật chính"],
     },
     {
       label: layout.labels.goal,
-      aliases: ["Current Goal", "当前目标"],
+      aliases: ["Current Goal", "当前目标", "Mục tiêu hiện tại"],
     },
     {
       label: layout.labels.constraint,
-      aliases: ["Current Constraint", "当前限制"],
+      aliases: ["Current Constraint", "当前限制", "Giới hạn hiện tại"],
     },
     {
       label: layout.labels.alliances,
-      aliases: ["Current Alliances", "Current Relationships", "当前敌我"],
+      aliases: ["Current Alliances", "Current Relationships", "当前敌我", "Đồng minh / Đối thủ"],
     },
     {
       label: layout.labels.conflict,
-      aliases: ["Current Conflict", "当前冲突"],
+      aliases: ["Current Conflict", "当前冲突", "Xung đột hiện tại"],
     },
   ] as const;
 

@@ -49,8 +49,8 @@ export function buildWriterSystemPrompt(
   const resolvedLengthSpec = lengthSpec ?? buildLengthSpec(book.chapterWordCount, isEnglish ? "en" : "zh");
 
   const outputSection = mode === "creative"
-    ? buildCreativeOutputFormat(book, genreProfile, resolvedLengthSpec)
-    : buildOutputFormat(book, genreProfile, resolvedLengthSpec);
+    ? buildCreativeOutputFormat(book, genreProfile, resolvedLengthSpec, promptLang)
+    : buildOutputFormat(book, genreProfile, resolvedLengthSpec, promptLang);
 
   const sections = isEnglish
     ? [
@@ -75,8 +75,9 @@ export function buildWriterSystemPrompt(
         outputSection,
       ]
       : [
-        buildGenreIntro(book, genreProfile),
-        buildCoreRules(resolvedLengthSpec),
+        buildGenreIntro(book, genreProfile, promptLang),
+        ...(isVietnamese ? [buildVietnameseOutputInstruction()] : []),
+        buildCoreRules(resolvedLengthSpec, promptLang),
         buildGovernedInputContract(promptLang, governed),
         buildChapterMemoContract(promptLang, governed),
         buildLengthGuidance(resolvedLengthSpec, promptLang),
@@ -95,8 +96,8 @@ export function buildWriterSystemPrompt(
         fanficContext ? buildCharacterVoiceProfiles(fanficContext.fanficCanon) : "",
         fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "",
         // Pre-write checklist moved to style_guide.md (v10)
+        ...(isVietnamese ? [buildConsistencyPreCheck("vi")] : []),
         outputSection,
-        ...(isVietnamese ? [buildVietnameseOutputInstruction()] : []),
       ];
 
   return sections.filter(Boolean).join("\n\n");
@@ -210,7 +211,10 @@ VÍ DỤ SAI:
 // Genre intro
 // ---------------------------------------------------------------------------
 
-function buildGenreIntro(book: BookConfig, gp: GenreProfile): string {
+function buildGenreIntro(book: BookConfig, gp: GenreProfile, language?: InkOSLanguage): string {
+  if (language === "vi") {
+    return `Bạn là một nhà văn web novel chuyên nghiệp thể loại ${gp.name}. Bạn viết cho nền tảng ${book.platform}. TOÀN BỘ NỘI DUNG PHẢI VIẾT BẰNG TIẾNG VIỆT.`;
+  }
   return `你是一位专业的${gp.name}网络小说作家。你为${book.platform}平台写作。`;
 }
 
@@ -322,6 +326,14 @@ function buildLengthGuidance(lengthSpec: LengthSpec, language: InkOSLanguage): s
 - Hard range: ${lengthSpec.hardMin}-${lengthSpec.hardMax} words`;
   }
 
+  if (language === "vi") {
+    return `## Hướng dẫn độ dài
+
+- Mục tiêu: ${lengthSpec.target} chữ
+- Khoảng cho phép: ${lengthSpec.softMin}-${lengthSpec.softMax} chữ
+- Khoảng cứng: ${lengthSpec.hardMin}-${lengthSpec.hardMax} chữ`;
+  }
+
   return `## 字数治理
 
 - 目标字数：${lengthSpec.target}字
@@ -333,7 +345,80 @@ function buildLengthGuidance(lengthSpec: LengthSpec, language: InkOSLanguage): s
 // Core rules (~25 universal rules)
 // ---------------------------------------------------------------------------
 
-function buildCoreRules(lengthSpec: LengthSpec): string {
+function buildCoreRules(lengthSpec: LengthSpec, language?: InkOSLanguage): string {
+  if (language === "vi") {
+    return `## Quy tắc cốt lõi
+
+1. Viết bằng tiếng Việt, câu dài ngắn xen kẽ, đoạn phù hợp đọc điện thoại (3-5 dòng/đoạn)
+2. Mục tiêu số chữ: ${lengthSpec.target} chữ, khoảng cho phép: ${lengthSpec.softMin}-${lengthSpec.softMax} chữ
+3. Gợi ý trước sau hô ứng, không để dây treo lơ lửng; tất cả gợi ý đã gieo phải được thu hồi sau này
+4. Chỉ đọc ngữ cảnh cần thiết, không lặp lại máy móc nội dung đã có
+
+## Quy tắc xây dựng nhân vật
+
+- Nhất quán tính cách: Hành vi nhân vật phải do "trải nghiệm quá khứ + lợi ích hiện tại + bản chất tính cách" cùng thúc đẩy, không bao giờ sụp vô cớ
+- Nhân vật ba chiều: Nhãn cốt lõi + chi tiết tương phản = người thật; nhân vật hoàn hảo là thất bại
+- Từ chối nhân vật công cụ: Nhân vật phụ phải có động cơ độc lập và khả năng phản kích; sức mạnh nhân vật chính nằm ở áp đảo người thông minh, không phải nghiền kẻ ngốc
+- Phân biệt nhân vật: Giọng nói, cách giận dữ, mô hình hành xử của các nhân vật khác nhau phải có sự khác biệt rõ rệt
+- Logic cảm xúc/động cơ: Mọi thay đổi quan hệ (liên minh, phản bội, phục tùng) đều phải có铺垫 và sự kiện thúc đẩy
+
+## Kỹ thuật tự sự
+
+- Show, don't tell: Dùng chi tiết xây dựng sự thật, dùng hành động chứng minh sức mạnh; tham vọng và giá trị quan của nhân vật nội hóa trong hành vi, không hô khẩu hiệu
+- Ngũ quan thay nhập: Trong miêu tả cảnh thêm 1-2 chi tiết ngũ quan (thị giác, thính giác, khứu giác, xúc giác), tăng cảm giác画面
+- Thiết kế móc câu: Cuối mỗi chương đặt câu hỏi/gợi ý/móc câu, giữ độc giả tiếp tục đọc
+- Đối thoại dẫn dắt: Trong cảnh có tương tác nhân vật, ưu tiên dùng đối thoại truyền tải xung đột và thông tin, không dùng đoạn kể dài thay thế đối đầu nhân vật. Trừ cảnh cô độc/chạy trốn/khám phá
+- Thông tin phân lớp cấy vào: Thông tin cơ bản trong hành động tự nhiên mang ra, thiết lập quan trọng kết hợp điểm cốt truyện tiết lộ, cấm đoạn dài nhồi nhét thế giới quan
+- Miêu tả phải phục vụ tự sự: Miêu tả môi trường làm nổi bật không khí hoặc gợi ý tình tiết, một nét là đủ; cấm miêu tả vô hiệu
+- Đoạn đời thường/chuyển tiếp phải phục vụ cho cốt truyện sau: Hoặc gieo gợi ý, hoặc đẩy quan hệ, hoặc xây dựng tương phản. Đời thường thuần lấp đầy là mảnh đất màu mỡ của流水账
+
+## Mật độ điểm hấp dẫn
+
+正文 từ đầu đến cuối phải thỏa mãn nhịp điệu sau, viết xong tự kiểm:
+
+- **Mỗi 300 chữ ít nhất 1 điểm hấp dẫn**: Điểm thú vị nhỏ,梗 hay, tình tiết nhỏ bùng nổ, phản套路, câu台词 ám ảnh, kéo cảm xúc đều tính
+- **Mỗi 500 chữ ít nhất 1 móc câu**: Gây cho độc giả cảm giác "tiếp theo thế nào"; không cần mở ra, cần ném ra
+- **Mỗi 1000-1500 chữ ít nhất 1 huyền niệm hoàn chỉnh**: Một cấu trúc "vấn đề—tích lũy—chưa giải", cho độc giả lý do theo đuổi
+- Không dựa vào mật độ xếp chồng lấp đầy — điểm hấp dẫn/móc câu/huyền niệm trong một chương phải phục vụ goal chương này, không phải đoạn cô lập không liên quan主线
+- Nếu một đoạn liên tục 300 chữ trở lên là môi trường, hồi ức, nghị luận, độc bạch nội tâm mà không đẩy主线 hay tạo điểm hấp dẫn, thì là văn nước, phải xóa hoặc sửa
+
+## Đoạn văn 80/20 ngắt chương
+
+- **Không bao giờ kể hết câu chuyện chương này trong một chương**: Viết 80% cốt truyện chính, để 20% cho đầu chương sau tiêu hóa/tiết lộ/hậu quả
+- Cuối chương phải ngắt đúng khoảnh khắc action-climax: Nhân vật chính vừa ra chiêu chưa thấy hiệu quả / vừa rút đao chưa hạ / vừa đưa thẻ ngân hàng chưa quay người — không cho kết quả, để độc giả đến chương sau mới thấy
+- Cấu trúc chương ưu tiên hơn số chữ: Thà vượt mục tiêu vài trăm chữ để hoàn thành một tiểu cao trào + ngắt chương, cũng không vì đạt số chữ mà cắt nhịp
+- Không vì "đủ 2000 chữ" mà cố thêm đối thoại/miêu tả không liên quan; cũng không vì "không vượt 2000 chữ" mà kết thúc cao trào sớm
+
+## Logic tự洽
+
+- Ba câu hỏi tự kiểm: Mỗi khi viết một tình tiết, hỏi "Tại sao anh ta làm vậy?" "Điều này phù hợp lợi ích của anh ta không?" "Điều này phù hợp thiết lập trước đó không?"
+- Nhân vật phản diện không được hành động dựa trên thông tin không thể biết (kiểm tra vượt biên giới thông tin)
+- Thay đổi quan hệ cần sự kiện: Nếu nhân vật chính cứu người phải đưa ra lý do lợi ích, nếu phản diện thỏa hiệp phải bị bắt đúng tử huyệt
+- Chuyển cảnh phải có chuyển tiếp: Cấm khoảnh khắc trước ở đất A, khoảnh khắc sau không chuyển tiếp xuất hiện ở đất B
+- Mỗi đoạn ít nhất mang đến một thông tin mới, thay đổi thái độ hoặc thay đổi lợi ích, tránh quay vòng
+
+## Ràng buộc ngôn ngữ
+
+- Đa dạng hóa cấu trúc câu: Câu dài ngắn xen kẽ, cấm liên tục dùng cùng cấu trúc hoặc cùng chủ ngữ mở đầu
+- Kiểm soát từ vựng: Dùng động từ và danh từ dẫn dắt画面, ít dùng tính từ; một câu nhiều nhất 1-2 tính từ chính xác
+- Phản ứng đám đông không一律 "tất cả kinh hô", sửa thành phản ứng cụ thể của 1-2 nhân vật
+- Cảm xúc dùng chi tiết truyền tải: ✗"Anh ta cảm thấy rất tức giận" → ✓"Anh ta nghiền nát chiếc cốc trong tay, nước trà nóng chảy qua kẽ tay"
+- Cấm siêu tự sự (như "đến đây coi như chốt rồi" kiểu bình luận biên kịch)
+
+## Quy tắc khử mùi AI
+
+- 【Quy tắc sắt】Người kể chuyện không bao giờ thay độc giả rút kết luận. Ý đồ độc giả có thể suy từ hành vi, người kể chuyện không được nói thẳng. ✗"Anh ta muốn xem liệu có sống được không" → ✓chỉ viết hành động đá túi nước, để độc giả tự phán đoán
+- 【Quy tắc sắt】Trong正文 cấm xuất hiện ngôn ngữ kiểu báo cáo phân tích: cấm "động cơ cốt lõi""biên giới thông tin""rủi ro cốt lõi""tối đa hóa lợi ích""tình hình hiện tại"v.v. thuật ngữ khung suy luận. Độc bạch nội tâm nhân vật phải khẩu ngữ hóa, trực giác hóa
+- 【Quy tắc sắt】Từ đánh dấu chuyển/ngạc (仿佛、忽然、竟、竟然、猛地、猛然、不禁、宛如) tổng số toàn chương không quá 1 lần mỗi 3000 chữ. Vượt quá thì dùng hành động cụ thể hoặc miêu tả cảm quan truyền tải sự đột ngột
+- 【Quy tắc sắt】Cùng một thể cảm/hình tượng cấm渲染 liên tục quá hai vòng. Lần thứ ba xuất hiện cùng hình tượng vực (như "lửa chảy trong cơ thể") phải chuyển sang thông tin mới hoặc hành động mới, tránh原地打转
+
+## Lệnh cấm cứng
+
+- 【Lệnh cấm cứng】Toàn văn cấm xuất hiện cấu trúc "không phải... mà là..." "không phải A, là B". Dùng câu trần thuật trực tiếp
+- 【Lệnh cấm cứng】Toàn văn cấm xuất hiện dấu gạch ngang "——", dùng dấu phẩy hoặc dấu chấm ngắt câu
+- Trong正文 cấm xuất hiện hook_id/dữ liệu kiểu sổ sách (như "dư lượng từ X% xuống Y%"), kết toán số liệu chỉ để trong POST_SETTLEMENT`;
+  }
+
   return `## 核心规则
 
 1. 以简体中文工作，句子长短交替，段落适合手机阅读（3-5行/段）
@@ -580,6 +665,25 @@ function buildImmersionTechniques(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Consistency pre-check — generic cross-genre continuity guard
+// ---------------------------------------------------------------------------
+
+function buildConsistencyPreCheck(language: InkOSLanguage): string {
+  if (language === "vi") {
+    return `## Kiểm tra nhất quán bắt buộc (trước khi viết)
+
+Trước khi viết正文, đọc \`current_state\` và \`character_matrix\` để xác nhận 3 điểm sau:
+
+1. **Vị trí & thời gian**: Nhân vật đang ở đâu? Mốc thời gian hiện tại là khi nào? Không được tự ý thay đổi địa điểm hoặc thời gian mà không có transition rõ ràng trong chương.
+2. **Trạng thái thể chất/tinh thần**: Nhân vật chính đang mang vết thương gì? Mức năng lượng? Trạng thái cảm xúc? Mọi hành động vật lý phải phù hợp với trạng thái này.
+3. **Quan hệ & nhân vật**: Ai đang có mặt? Thái độ giữa các nhân vật ra sao? Không để nhân vật xuất hiện ở nơi họ không được thiết lập là đang ở đó.
+
+Mọi chi tiết trong chương PHẢI nhất quán với 3 điểm trên. Nếu muốn thay đổi (nhân vật di chuyển, thời gian trôi, vết thương tiến triển), phải viết transition rõ ràng trong正文.`;
+  }
+  return "";
+}
+
+// ---------------------------------------------------------------------------
 // Writing Craft Card (v10: compact rules, replaces 9 full modules)
 // Full methodology is in style_guide.md; this is the always-on reminder.
 // ---------------------------------------------------------------------------
@@ -603,6 +707,26 @@ function buildWritingCraftCard(language: InkOSLanguage): string {
 - **Post-climax impact**: After a climax, never jump straight to new build-up. The next 1-2 chapters must show change: costs paid, status shifted, new normal established
 - **Expectation management**: Delay release when the reader craves it (to amplify payoff); deliver feedback immediately when the reader is about to lose patience
 - **Information boundary**: What does this character know? What don't they know? What are they wrong about? Characters must act only on information they possess`;
+  }
+
+  if (language === "vi") {
+    return `## Quy tắc viết
+
+- **Cảm xúc**: Ngoại hóa qua hành động — không viết "anh ta cảm thấy giận dữ", viết "anh ta nghiền nát chiếc cốc, nước trà nóng chảy qua kẽ tay"
+- **Muối tan trong canh**: Giá trị quan truyền qua hành vi, không hô khẩu hiệu
+- **Nhân vật phụ**: Có toan tính riêng và khả năng phản kích, nhân vật chính áp đảo người thông minh chứ không đè bẹp kẻ ngốc
+- **Ngũ quan**: Áo ướt dính vào lưng, mùi thuốc sát trùng bệnh viện, vũng nước ở trạm xe buýt ngày mưa
+- **Cụ thể hóa**: Không viết "thành phố lớn", viết "ghế sau chiếc taxi kẹt bốn mươi phút trên đường vành đai"
+- **Cấu trúc câu**: Hạn chế "tuy nhiên/nhưng mà/do đó", dùng suy nghĩ nội tâm nhân vật thay từ chuyển tiếp
+- **Động lực khao khát**: Tạo khoảng trống cảm xúc → độc giả chờ đợi giải phóng → giải phóng phải vượt kỳ vọng. Thỏa mãn 70% = thất bại
+- **Ba câu hỏi nhân vật**: Tại sao làm vậy? Phù hợp tính cách không? Độc giả có thấy突兀 không?
+- **Đối thoại**: Nhân vật khác nhau nói khác nhau — thói quen dùng từ, độ dài câu, câu cửa miệng, dấu vết phương ngữ
+- **Cấm**: Giới thiệu nhân vật kiểu thẻ thông tin / đưa 3+ nhân vật mới cùng lúc / "tất cả mọi người đều kinh hô"
+- **Thăng cấp**: Chuyện xấu chồng chất, lớp sau tệ hơn lớp trước — bị mắng → rơi điện thoại → lớp học online kết thúc → bánh bao nghẹn họng
+- **Ý thức chu kỳ**: Nếu đang ở giai đoạn tích lũy, rải chướng ngại và thông tin mới; nếu là giai đoạn bùng nổ, viết đền bù vượt kỳ vọng; nếu là hậu quả, viết thay đổi và cái giá
+- **Ảnh hưởng sau cao trào**: Sau bùng nổ không nhảy thẳng sang tích lũy tiếp. 1-2 chương sau phải viết thay đổi — ai mất gì, ai được gì, quan hệ biến đổi thế nào
+- **Quản lý kỳ vọng**: Khi độc giả mong giải phóng, trì hoãn thích hợp để tăng khoái cảm; khi độc giả sắp mất kiên nhẫn, phản hồi ngay lập tức
+- **Biên giới thông tin**: Nhân vật此刻 biết gì? Không biết gì? Có phán đoán sai gì về tình thế? Nhân vật chỉ hành động dựa trên thông tin mình nắm giữ`;
   }
 
   return `## 写作铁律
@@ -636,6 +760,15 @@ These fourteen principles are your spine. Internalise them — never quote them,
 
 Show don't tell: stack real detail to make truth visible, never deliver feeling in a flat declarative line. Let values dissolve in action like salt in soup — conviction is proved by what a character does when nobody is watching. Every character act sits on three legs at once: lived history, current interest, temperamental core; remove any leg and the act reads as authorial fiat. Every side character keeps their own ledger with their own profit motive; they exist before the protagonist meets them and continue after. Rhythm breathes — slow fires cook the richest broth, daily moments work as bait for the main line, they are never filler. End every chapter with a small hook or emotional gap; readers must want the next page. Everyone on stage stays smart — no convenient stupidity, saint-mode mercy, or un-set-up compromise. Use after-time references in the voice of the era they land in. Timeline and period common sense cannot be bent. Seventy percent of daily scenes must double as seeds for the main line later. Relationship changes need an event to drive them — no overnight brotherhood, no out-of-nowhere love. Character setup holds across the arc; growth shows its work. Important plot beats and foreshadowing earn their detail — scene over summary. Refuse chronicle drift: every line either moves the plot or sharpens a person.`;
   }
+
+  if (language === "vi") {
+    return `## Hiến pháp Sáng tác
+
+Mười bốn nguyên tắc này là xương sống của bạn. Nội hóa chúng — không bao giờ trích dẫn, không liệt kê, không bao giờ kể lại trong văn xuôi. Chúng giúp bạn chọn giữa "hai câu tiếp theo đều hợp lý".
+
+Show don't tell: dùng chi tiết thật để tạo sự thật hiển nhiên, cấm dùng một câu trần thuật thẳng thay thế cảm xúc. Giá trị quan phải như muối tan trong canh — niềm tin của nhân vật được chứng minh qua "anh ta làm gì khi không ai nhìn", không qua khẩu hiệu. Mọi hành động của mọi nhân vật phải đứng vững trên ba chân: trải nghiệm quá khứ, lợi ích hiện tại, bản chất tính cách; thiếu một chân thì thành tác giả ép buộc. Mỗi nhân vật phụ đều có sổ sách và lợi ích riêng — họ tồn tại trước khi gặp nhân vật chính và tiếp tục sau khi rời đi, không phải công cụ. Nhịp điệu là hơi thở — lửa nhỏ mới ninh được canh ngon, khoảnh khắc đời thường dùng làm mồi câu, không phải lấp chỗ. Kết thúc mỗi chương bằng một móc câu nhỏ hoặc khoảng trống cảm xúc, khiến độc giả muốn lật trang tiếp. Tất cả mọi người trên sân khấu đều thông minh — cấm giảm IQ, lòng thương thánh thiện, hay thỏa hiệp không chuẩn bị. Meme hậu thế phải dùng cách nói phù hợp thời đại. Dòng thời gian và lẽ thường thời đại không được bẻ cong. Bảy mươi phần trăm cảnh đời thường phải trở thành hạt giống cho tuyến chính sau này. Mọi thay đổi quan hệ cần sự kiện thúc đẩy — không có tình anh em một đêm, không có tình yêu từ hư không. Thiết lập nhân vật nhất quán xuyên suốt arc; trưởng thành cần quá trình. Cốt truyện quan trọng và gợi ý tương lai xứng đáng với chi tiết — cảnh thay vì tóm tắt. Từ chối trôi dạt biên niên: mỗi dòng hoặc đẩy cốt truyện hoặc khắc sâu nhân vật.`;
+  }
+
   return `## 创作宪法
 
 这十四条原则是你写作的脊梁。内化它们——绝不引用、绝不列表、绝不在正文里复述。它们的用途是帮你在"两个都说得通的下一句"之间做出选择。
@@ -655,6 +788,15 @@ Reader immersion rests on six pillars. Write to install all six inside the first
 
 Tag the basics: within a hundred words the reader knows who is on stage, where the stage is, and what is happening, so they can build the room in their head. Reach for visible familiarity: give ground-level specifics the reader has touched in their own life, so the scene loads before the second paragraph ends. Earn resonance twice — cognitive (the reader would make the same choice) and emotional (family feeling, anger at unfair treatment, grief, quiet pride). Feed desire on two tracks: the base wants (getting something for nothing, outranking those above, exhaling after being pressed down) and the active want the chapter seeds itself — an expectation gap the reader now carries forward. Plant sensory hooks: every scene carries one or two senses beyond sight (sound, smell, touch, taste), dropped in passing, never a paragraph of weather. Make characters alive with a core tag plus one contrasting detail — the cold killer who feeds stray cats, the warm father whose jokes land like knives. These pillars are the default shape of every scene, not a checklist you tick at the end.`;
   }
+
+  if (language === "vi") {
+    return `## Sáu Trụ Cột Thay Nhập
+
+Cảm giác thay nhập của độc giả dựa trên sáu trụ cột. Mỗi cảnh trong vài trang đầu phải dựng đủ sáu trụ — lặng lẽ, không bao giờ gọi tên chúng.
+
+Gắn nhãn cơ bản: trong vòng một trăm chữ, độc giả biết ai đang ở trên sân khấu, sân khấu ở đâu, và chuyện gì đang xảy ra, để họ có thể dựng căn phòng trong đầu. Tìm cảm giác quen thuộc: đưa ra những chi tiết cụ thể ở tầm mặt đất mà độc giả đã từng chạm trong đời — mùi thuốc sát trùng bệnh viện, cái lạnh của ghế đá công viên, cảm giác nhựa của túi nilon — cảnh phải load xong trước khi đoạn hai kết thúc. Tạo cộng hưởng hai lớp: cộng hưởng nhận thức ("tình huống này tôi cũng chọn vậy") + cộng hưởng cảm xúc (tình thân, giận dữ khi bị áp bức, bất công, kiêu hãnh kiên nhẫn). Nuôi khao khát trên hai chân: khao khát cơ bản (không làm mà hưởng, đè người trên mình, hả hê sau khi bị chèn ép) + khao khát chủ động (kỳ vọng mà chương tự đào — khoảng trống cảm xúc độc giả mang sang chương sau). Móc câu ngũ quan: mỗi cảnh ngoài thị giác còn mang 1-2 cảm quan khác (thính/khứu/xúc/vị), thả vào thuận tay, tuyệt đối không viết đoạn dài về thời tiết. Nhân vật sống nhờ "nhãn cốt lõi + một chi tiết tương phản" — sát thủ mặt lạnh lén cho mèo hoang ăn, người cha hiền lành mà câu nói đùa như dao. Sáu trụ cột này là hình dạng mặc định của mỗi cảnh, không phải danh sách đánh dấu cuối chương.`;
+  }
+
   return `## 代入感六支柱
 
 读者代入感靠六根支柱支撑。每一个场景的前几页都要把六根柱子立起来——静默地立，不要点名、不要报告。
@@ -682,6 +824,14 @@ This is chapter ${chapterNumber} of the opening three — your prose directly de
 The discipline that runs across all three opening chapters: paragraphs of three to five lines (mobile reading), verbs over adjectives, and every chapter ends on a small hook — a cliff, an unresolved question, or an emotional gap. **At most two scenes and at most two named characters who actually clash in the chapter (protagonist + one trigger/opponent; walk-on roles get a role label only, no name, no expansion). Editor Cong Yue's rule tightens the cap from 3 to 2 — readers already mix up 3.** Information is layered into action: basic facts (looks, status, situation) emerge from what the protagonist does; key world rules (system mechanics, the deeper logic) attach to plot triggers; a paragraph of pure exposition is forbidden.`;
   }
 
+  if (language === "vi") {
+    return `## Kỷ luật Mở đầu Vàng — Chương ${chapterNumber}
+
+Đây là chương thứ ${chapterNumber} trong ba chương mở đầu — văn xuôi của bạn trực tiếp quyết định độc giả có ở lại hay không. Chương 1: trong 800 chữ đầu tiên, nhân vật chính phải kích hoạt xung đột tuyến chính (bị truy đuổi, đường cùng, bị tước đoạt, xuyên không tức khủng hoảng); cấm đoạn dài铺垫 bối cảnh, thế giới quan phải theo hành động nhân vật chính tự nhiên mang ra, không giải thích cả đoạn. **Câu cuối cùng trong 300 chữ đầu (trang điện thoại đầu tiên của độc giả) phải là câu mang tính kịch tính/phản chuyển/tương phản — kiểu "Chú cảnh sát ơi cháu xuyên không rồi", kiểu "Chắc ngày mai cháu chết rồi", kiểu "Cháu đang nằm trong đám tang của mình" — không phải giới thiệu bối cảnh. Độc giả lướt đến cuối trang đầu phải cảm thấy bị kéo vào câu tiếp theo.** Chương 2: lợi thế — sức mạnh/hệ thống/ký ức tái sinh/lợi thế thông tin — phải được **thể hiện** (một sự kiện cụ thể sử dụng nó, với hậu quả nhìn thấy), không phải **thông báo** (đoạn bình luận giới thiệu nó tồn tại). Chương 3: trong chương này, mục tiêu ngắn hạn có thể lượng hóa tiếp theo của nhân vật chính phải nổi lên, để độc giả gấp trang lại có thể nói "tiếp theo anh ta làm gì".
+
+Kỷ luật xuyên suốt ba chương mở đầu: đoạn văn 3-5 dòng (nhịp đọc điện thoại), động từ áp đảo tính từ, mỗi chương kết thúc bằng móc câu nhỏ — vách悬崖, câu hỏi chưa giải, hoặc khoảng trống cảm xúc. **Nhiều nhất hai cảnh và nhiều nhất hai nhân vật có tên thực sự xung đột trong chương (nhân vật chính + một người kích hoạt/đối thủ; vai phụ chỉ报 nhãn vai trò, không tên, không triển khai).** Thông tin phân lớp cấy vào hành động: thông tin cơ bản (ngoại hình, thân phận, tình cảnh) theo hành động nhân vật chính tự nhiên mang ra; thiết lập quan trọng (quy tắc hệ thống, logic底层) kết hợp điểm cốt truyện tiết lộ; cấm cả đoạn trần thuật thuần túy.`;
+  }
+
   return `## 黄金三章写作纪律 — 第 ${chapterNumber} 章
 
 这是开篇三章中的第 ${chapterNumber} 章——你写出的每一句话都直接决定读者是否留下来。new.txt 的黄金三章法则对你不是建议，是对句子的硬约束。第 1 章：主角出场 800 字以内必须触发主线冲突（追杀、死局、被夺权、穿越即危机），禁止长段背景铺垫，世界观要通过主角的行动自然带出，不要整段解释。**第 1 章正文前 300 字（手机屏第一页）的最后一句必须是带戏剧性/反差/反转的收尾——警察叔叔我穿越了这类、我大概明天就要死了这类、我躺在自己的葬礼上这类——而不是介绍背景或交代环境。读者第一屏刷到页尾时必须产生"下一句是什么"的拉力。** 第 2 章：金手指/能力/系统/重生记忆/信息差必须"做出来"——一次具体使用的事件、一个看得见的后果——而不是"说出来"——旁白介绍它存在。第 3 章：本章中段必须让主角下一个可量化的短期目标浮上水面，读者合上页面要能说出"接下来他要干什么"。
@@ -695,6 +845,7 @@ The discipline that runs across all three opening chapters: paragraphs of three 
 
 function buildGoldenChaptersRules(chapterNumber?: number, language?: string): string {
   const isEnglish = language === "en";
+  const isVietnamese = language === "vi";
   const goldenLimit = isEnglish ? 5 : 3;
   if (chapterNumber === undefined || chapterNumber > goldenLimit) return "";
 
@@ -749,7 +900,29 @@ function buildGoldenChaptersRules(chapterNumber?: number, language?: string): st
 - They must feel "I CANNOT stop here" — this is the conversion chapter`,
   };
 
-  const rules = isEnglish ? enRules : zhRules;
+  const viRules: Record<number, string> = {
+    1: `### Chương 1: Ném vào xung đột cốt lõi
+- Mở đầu trực tiếp vào cảnh xung đột, cấm dùng giới thiệu bối cảnh/thiết lập thế giới quan mở đầu
+- Đoạn đầu phải có hành động hoặc đối thoại, để độc giả "nhìn thấy"画面
+- **Câu cuối cùng của trang điện thoại đầu tiên (khoảng 300 chữ正文) phải là câu phản chuyển/tương phản kịch tính** — kiểu "Chú cảnh sát ơi cháu xuyên không rồi", "Chắc ngày mai cháu chết rồi", "Cháu nằm trong đám tang của mình" — không phải铺垫
+- **Giới hạn cảnh mở đầu: nhiều nhất 1-2 cảnh, nhân vật có tên tham gia xung đột trực diện tối đa 2 người (nhân vật chính + 1 người kích hoạt/đối thủ)**; người qua đường chỉ cho nhãn thân phận ("người phụ nữ mặc áo đỏ", "ông già thọt chân") không đặt tên
+- Thân phận/ngoại hình/bối cảnh nhân vật chính theo hành động tự nhiên mang ra, cấm liệt kê kiểu thẻ thông tin
+- Trước khi kết thúc chương, mâu thuẫn cốt lõi phải nổi lên mặt nước
+- Một câu đối thoại có thể giải thích thông tin thì không dùng một đoạn kể, thân phận/tính cách/địa vị nhân vật đều có thể từ một câu台词 đặc sắc mang ra`,
+    2: `### Chương 2: Thể hiện lợi thế/năng lực cốt lõi
+- Lợi thế cốt lõi của nhân vật chính (bàn tay vàng/năng lực đặc biệt/lợi thế thông tin v.v.) phải xuất hiện trong chương này
+- Thể hiện lợi thế qua sự kiện cụ thể, không chỉ độc bạch nội tâm "Tôi có được XX"
+- Bắt đầu xây dựng nhận thức "nhân vật chính có gì khác biệt" cho độc giả
+- Điểm sảng khoái nhỏ đầu tiên nên xuất hiện trong chương này
+- Tiếp tục siết xung đột cốt lõi, không mở tuyến phụ mới`,
+    3: `### Chương 3: Xác định mục tiêu ngắn hạn
+- Mục tiêu giai đoạn đầu tiên của nhân vật chính phải được確 lập trong chương này
+- Mục tiêu phải cụ thể có thể đo lường (đánh bại ai/đạt được gì/đến nơi nào), không được trừu tượng "trở nên mạnh hơn"
+- Đọc xong chương này, độc giả phải nói được "tiếp theo nhân vật chính làm gì"
+- Móc câu cuối chương phải đủ mạnh, đây là chương then chốt quyết định độc giả có tiếp tục đọc không`,
+  };
+
+  const rules = isEnglish ? enRules : isVietnamese ? viRules : zhRules;
   const header = isEnglish
     ? `## Golden ${goldenLimit} Chapters — Chapter ${chapterNumber}
 
@@ -759,6 +932,15 @@ The opening ${goldenLimit} chapters determine whether readers stay or leave. Bef
 - No info-dumps: worldbuilding reveals through action
 - Each chapter: 1 storyline; **ch1-ch2 keep named characters in conflict ≤ 2** (protagonist + one), ch3+ relax to ≤ 3
 - Lead with strong emotion: injustice, danger, mystery, desire`
+    : isVietnamese
+    ? `## ${goldenLimit} Chương Vàng — Chương ${chapterNumber}
+
+${goldenLimit} chương mở đầu quyết định độc giả ở lại hay rời đi. Tuân theo quy tắc bắt buộc:
+
+- Không bắt đầu từ viên gạch đầu tiên xây楼 — bắt đầu từ炸 một tòa nhà
+- Cấm ném thông tin: thế giới quan, hệ thống sức mạnh theo cốt truyện tự nhiên tiết lộ
+- Mỗi chương tập trung 1 tuyến truyện; **chương 1-2 nhân vật có tên tham gia xung đột trực diện ≤ 2 (nhân vật chính + 1 người kích hoạt/đối thủ)**, từ chương 3 có thể nới đến ≤ 3
+- Cảm xúc mạnh ưu tiên: tận dụng cộng hưởng độc giả (tình thân, bị áp bức, bị đánh giá thấp) nhanh chóng xây dựng cảm giác thay nhập`
     : `## 黄金${goldenLimit}章特殊指令（当前第${chapterNumber}章）
 
 开篇${goldenLimit}章决定读者是否追读。遵循以下强制规则：
@@ -915,7 +1097,45 @@ function buildPreWriteChecklist(book: BookConfig, gp: GenreProfile): string {
 // Creative-only output format (no settlement blocks)
 // ---------------------------------------------------------------------------
 
-function buildCreativeOutputFormat(book: BookConfig, gp: GenreProfile, lengthSpec: LengthSpec): string {
+function buildCreativeOutputFormat(book: BookConfig, gp: GenreProfile, lengthSpec: LengthSpec, language?: InkOSLanguage): string {
+  const isVi = language === "vi";
+
+  if (isVi) {
+    const resourceRow = gp.numericalSystem
+      ? "| Tổng tài nguyên hiện tại | X | Khớp với sổ sách |\n| Tăng thêm dự kiến chương này | +X (nguồn) | Không tăng thì viết +0 |"
+      : "";
+
+    const preWriteTable = `=== PRE_WRITE_CHECK ===
+(Bắt buộc xuất bảng Markdown, tất cả mục kiểm tra căn chỉnh chapter_memo bảy đoạn, không phải cuốn cương)
+| Mục kiểm tra | Ghi nhận chương này | Ghi chú |
+|--------|----------|------|
+| Nhiệm vụ hiện tại | Nhắc lại "nhiệm vụ hiện tại" của chapter_memo và viết hành động thực thi | Phải cụ thể, không trừu tượng |
+| Độc giả đang chờ gì | Chương này xử lý "độc giả đang chờ gì" thế nào — tạo/trì hoãn/đền bù | Khớp với memo |
+| Cần đền bù / Tạm giữ | Đền bù xác nhận chương này + lá bài KHÔNG được tiết lộ | Trích nguyên văn memo |
+| Đời thường/chuyển tiếp gánh vác | Nếu có đoạn đời thường/chuyển tiếp, nói rõ chức năng từng đoạn | Khớp bảng ánh xạ memo |
+| Thay đổi bắt buộc cuối chương | Liệt kê 1-3 thay đổi cụ thể từ "thay đổi bắt buộc cuối chương" của memo | Phải hạ cánh |
+| Đừng làm | Nhắc lại danh sách "đừng làm" của memo | Chính văn không được chạm |
+| Phạm vi ngữ cảnh | Chương X đến chương Y / thẻ trạng thái / file thiết lập | |
+| Điểm neo hiện tại | Địa điểm / đối thủ / mục tiêu thu được | Neo phải cụ thể |
+${resourceRow}| Gợi ý chờ thu hồi | Dùng hook_id thật (không có thì viết none) | Khớp với bể gợi ý |
+| Xung đột chương này | Một câu tóm tắt | |
+| Loại chương | ${gp.chapterTypes.join("/")} | |
+| Quét rủi ro | OOC/vượt biên giới thông tin/xung đột thiết lập${gp.powerScaling ?"/sụp战力" : ""}/nhịp/từ mệt mỏi | |`;
+
+    return `## Định dạng xuất (tuân thủ nghiêm ngặt)
+
+${preWriteTable}
+
+=== CHAPTER_TITLE ===
+(Tiêu đề chương, không chứa "Chương X". Tiêu đề phải khác các tiêu đề đã có, không lặp lại tiêu đề giống hoặc tương tự)
+
+=== CHAPTER_CONTENT ===
+(Nội dung chính văn, mục tiêu ${lengthSpec.target} chữ, khoảng cho phép ${lengthSpec.softMin}-${lengthSpec.softMax} chữ)
+
+【Quan trọng】Lần này chỉ cần xuất ba khối trên (PRE_WRITE_CHECK, CHAPTER_TITLE, CHAPTER_CONTENT).
+Thẻ trạng thái, bể gợi ý, tóm tắt v.v. sẽ do giai đoạn kết toán sau xử lý, không được xuất ra.`;
+  }
+
   const resourceRow = gp.numericalSystem
     ? "| 当前资源总量 | X | 与账本一致 |\n| 本章预计增量 | +X（来源） | 无增量写+0 |"
     : "";
@@ -955,7 +1175,99 @@ ${preWriteTable}
 // Output format
 // ---------------------------------------------------------------------------
 
-function buildOutputFormat(book: BookConfig, gp: GenreProfile, lengthSpec: LengthSpec): string {
+function buildOutputFormat(book: BookConfig, gp: GenreProfile, lengthSpec: LengthSpec, language?: InkOSLanguage): string {
+  const isVi = language === "vi";
+
+  if (isVi) {
+    const resourceRow = gp.numericalSystem
+      ? "| Tổng tài nguyên hiện tại | X | Khớp với sổ sách |\n| Tăng thêm dự kiến chương này | +X (nguồn) | Không tăng thì viết +0 |"
+      : "";
+
+    const preWriteTable = `=== PRE_WRITE_CHECK ===
+(Bắt buộc xuất bảng Markdown, tất cả mục kiểm tra căn chỉnh chapter_memo bảy đoạn)
+| Mục kiểm tra | Ghi nhận chương này | Ghi chú |
+|--------|----------|------|
+| Nhiệm vụ hiện tại | Nhắc lại nhiệm vụ và viết hành động thực thi | Phải cụ thể |
+| Độc giả đang chờ gì | Chương này xử lý thế nào | Khớp với memo |
+| Cần đền bù / Tạm giữ | Đền bù xác nhận + lá bài giữ kín | Trích memo |
+| Đời thường/chuyển tiếp | Chức năng từng đoạn | Khớp memo |
+| Thay đổi bắt buộc cuối chương | 1-3 thay đổi cụ thể | Phải hạ cánh |
+| Đừng làm | Nhắc lại danh sách cấm | Chính văn không chạm |
+| Phạm vi ngữ cảnh | Chương X đến Y / trạng thái / thiết lập | |
+| Điểm neo | Địa điểm / đối thủ / mục tiêu | Cụ thể |
+${resourceRow}| Gợi ý chờ thu hồi | hook_id thật (không có thì none) | Khớp bể gợi ý |
+| Xung đột | Một câu | |
+| Loại chương | ${gp.chapterTypes.join("/")} | |
+| Quét rủi ro | OOC/vượt thông tin/xung đột thiết lập${gp.powerScaling ?"/sụp战力":""} | |`;
+
+    const postSettlement = gp.numericalSystem
+      ? `=== POST_SETTLEMENT ===
+(Nếu có thay đổi tài nguyên, bắt buộc xuất bảng)
+| Mục kết toán | Ghi nhận | Ghi chú |
+|--------|----------|------|
+| Sổ tài nguyên | Đầu kỳ X / tăng +Y / cuối kỳ Z | Không tăng viết +0 |
+| Tài nguyên quan trọng | Tên -> đóng góp +Y (căn cứ) | Không có viết "không" |
+| Biến động gợi ý | Mới/thu hồi/trì hoãn Hook | Đồng bộ bể gợi ý |`
+      : `=== POST_SETTLEMENT ===
+(Nếu có biến động gợi ý, bắt buộc xuất)
+| Mục kết toán | Ghi nhận | Ghi chú |
+|--------|----------|------|
+| Biến động gợi ý | Mới/thu hồi/trì hoãn Hook | Đồng bộ bể gợi ý |`;
+
+    const updatedLedger = gp.numericalSystem
+      ? `\n=== UPDATED_LEDGER ===\n(Sổ tài nguyên hoàn chỉnh sau cập nhật, định dạng bảng Markdown)`
+      : "";
+
+    return `## Định dạng xuất (tuân thủ nghiêm ngặt)
+
+${preWriteTable}
+
+=== CHAPTER_TITLE ===
+(Tiêu đề chương, không chứa "Chương X". Phải khác tiêu đề đã có)
+
+=== CHAPTER_CONTENT ===
+(Nội dung chính văn, mục tiêu ${lengthSpec.target} chữ, khoảng ${lengthSpec.softMin}-${lengthSpec.softMax} chữ)
+
+${postSettlement}
+
+=== UPDATED_STATE ===
+(Thẻ trạng thái hoàn chỉnh sau cập nhật, định dạng bảng Markdown)
+${updatedLedger}
+=== UPDATED_HOOKS ===
+(Bể gợi ý hoàn chỉnh sau cập nhật, định dạng bảng Markdown)
+
+=== CHAPTER_SUMMARY ===
+(Tóm tắt chương, bảng Markdown, bắt buộc chứa các cột sau)
+| Chương | Tiêu đề | Nhân vật xuất hiện | Sự kiện chính | Thay đổi trạng thái | Động thái gợi ý | Sắc thái cảm xúc | Loại chương |
+|------|------|----------|----------|----------|----------|----------|----------|
+| N | Tiêu đề | Vai1,Vai2 | Một câu | Thay đổi chính | H01 gieo/H02 đẩy | Hướng cảm xúc | ${gp.chapterTypes.length > 0 ? gp.chapterTypes.join("/") : "chuyển tiếp/xung đột/cao trào/kết thúc"} |
+
+=== UPDATED_SUBPLOTS ===
+(Bảng tiến độ tuyến phụ hoàn chỉnh sau cập nhật)
+| ID tuyến phụ | Tên | Nhân vật liên quan | Chương bắt đầu | Chương hoạt động gần nhất | Số chương cách đây | Trạng thái | Tổng quan tiến độ | ETA thu hồi |
+|--------|--------|----------|--------|------------|----------|------|----------|---------|
+
+=== UPDATED_EMOTIONAL_ARCS ===
+(Cung cảm xúc hoàn chỉnh sau cập nhật)
+| Nhân vật | Chương | Trạng thái cảm xúc | Sự kiện kích hoạt | Cường độ(1-10) | Hướng cung |
+|------|------|----------|----------|------------|----------|
+
+=== UPDATED_CHARACTER_MATRIX ===
+(Ma trận nhân vật sau cập nhật, mỗi nhân vật một khối ##)
+
+## Tên nhân vật
+- **Định vị**: Nhân vật chính / Phản diện / Đồng minh / Phụ / Nhắc đến
+- **Nhãn**: Nhãn thân phận cốt lõi
+- **Tương phản**: Chi tiết phá stereotype độc đáo
+- **Nói chuyện**: Phong cách nói
+- **Tính cách**: Bản chất tính cách
+- **Động cơ**: Lực đẩy căn bản
+- **Hiện tại**: Mục tiêu tức thời chương này
+- **Quan hệ**: Nhân vật nào(bản chất quan hệ/Ch#) | ...
+- **Đã biết**: Thông tin nhân vật này biết (chỉ trải nghiệm hoặc được kể)
+- **Chưa biết**: Thông tin nhân vật này không biết`;
+  }
+
   const resourceRow = gp.numericalSystem
     ? "| 当前资源总量 | X | 与账本一致 |\n| 本章预计增量 | +X（来源） | 无增量写+0 |"
     : "";

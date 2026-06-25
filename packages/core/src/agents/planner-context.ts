@@ -167,6 +167,7 @@ function extractActiveSubplotLines(raw: string): string[] {
 function extractRecentEmotionalArcLines(raw: string, chapterNumber: number, limit: number): string[] {
   const rows = parseMarkdownTableRows(raw);
   if (rows.length === 0) {
+    // Fallback: extract bullet-point lines or non-header lines from section-based format
     return raw
       .split("\n")
       .map((line) => line.trim())
@@ -176,11 +177,21 @@ function extractRecentEmotionalArcLines(raw: string, chapterNumber: number, limi
   }
   // emotional_arcs.md column layout: 角色 | 章节 | 情绪状态 | 触发事件 | 强度 | 弧线方向
   // Chapter number lives in column index 1 (row[1]), not column 0.
-  return rows
+  const chapterFiltered = rows
     .filter((row) => /^\d+$/.test(row[1] ?? ""))
     .filter((row) => parseInt(row[1]!, 10) < chapterNumber)
     .slice(-limit)
     .map((row) => row.filter(Boolean).join(" | "));
+
+  // If chapter-based filtering yields nothing (table uses character names in col 0,
+  // not chapter numbers in col 1), return the last N data rows as-is.
+  if (chapterFiltered.length === 0) {
+    return rows
+      .filter((row) => !isLikelyHeaderRow(row))
+      .slice(-limit)
+      .map((row) => row.filter(Boolean).join(" | "));
+  }
+  return chapterFiltered;
 }
 
 const CHARACTER_MATRIX_HEADER_CELLS = /^(角色|character|name|核心标签|与主角关系|relation)$/i;
@@ -197,9 +208,10 @@ function isLikelyHeaderRow(row: ReadonlyArray<string>): boolean {
  * convention.
  */
 export function extractProtagonistRow(characterMatrixRaw: string): string {
+  // Try table format first (| col1 | col2 | ...)
   const rows = parseMarkdownTableRows(characterMatrixRaw);
   const protagonist = rows.find((row) =>
-    row.some((cell) => /^(主角本人|主角|protagonist)$/i.test(cell.trim())),
+    row.some((cell) => /^(主角本人|主角|protagonist|nhân vật chính)$/i.test(cell.trim())),
   );
   if (protagonist) {
     return `| ${protagonist.join(" | ")} |`;
@@ -208,7 +220,22 @@ export function extractProtagonistRow(characterMatrixRaw: string): string {
   if (firstDataRow) {
     return `| ${firstDataRow.join(" | ")} |`;
   }
-  return "（未找到主角行——请检查 character_matrix.md）";
+
+  // Fallback: section-based format (## Character Name\n- **key**: value\n...)
+  // Extract the first ## section as the protagonist entry
+  const sectionMatch = characterMatrixRaw.match(/^## (.+?)\n([\s\S]*?)(?=\n## |$)/);
+  if (sectionMatch) {
+    const name = sectionMatch[1]!.trim();
+    const details = sectionMatch[2]!.trim()
+      .split("\n")
+      .map((line) => line.replace(/^[-*]\s*\*\*(.+?)\*\*\s*:\s*/, "$1: ").trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .join("; ");
+    return `**${name}**: ${details}`;
+  }
+
+  return "(protagonist row not found — check character_matrix.md / 未找到主角行)";
 }
 
 const OPPONENT_PATTERNS = /敌对|对手|阻力|opponent|antagonist|foe/i;

@@ -149,6 +149,8 @@ export function renderHookDiagnosticMarker(
   if (diagnostics.stale) {
     tokens.push(language === "en"
       ? `stale (d=${diagnostics.distance}/half=${diagnostics.halfLife})`
+      : language === "vi"
+      ? `cũ (kc=${diagnostics.distance}/chu kỳ=${diagnostics.halfLife})`
       : `过期 (距=${diagnostics.distance}/半衰=${diagnostics.halfLife})`);
   }
   if (diagnostics.blocked) {
@@ -159,10 +161,14 @@ export function renderHookDiagnosticMarker(
     const distanceToken = diagnostics.blockedDistance > 0
       ? (language === "en"
         ? ` (blocked ${diagnostics.blockedDistance} chapters)`
+        : language === "vi"
+        ? ` (chặn ${diagnostics.blockedDistance} chương)`
         : ` (已阻 ${diagnostics.blockedDistance} 章)`)
       : "";
     tokens.push(language === "en"
       ? `blocked on ${missing}${distanceToken}`
+      : language === "vi"
+      ? `chặn bởi ${missing}${distanceToken}`
       : `受阻于 ${missing}${distanceToken}`);
   }
   return tokens.join("; ");
