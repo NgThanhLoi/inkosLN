@@ -13,37 +13,38 @@ import {
   Wrench,
 } from "lucide-react";
 import { buildApiUrl } from "../../hooks/use-api";
+import type { TFunction } from "../../hooks/use-i18n";
 
 // -- Status rendering helpers --
 
-function ExecStatusBadge({ status }: { status: ToolExecution["status"] }) {
+function ExecStatusBadge({ status, t }: { status: ToolExecution["status"]; t: TFunction }) {
   switch (status) {
     case "running":
       return (
         <span className="inline-flex items-center gap-1 text-xs text-primary">
           <Loader2 size={12} className="animate-spin" />
-          <span>执行中</span>
+          <span>{t("tool.status.running")}</span>
         </span>
       );
     case "processing":
       return (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Loader2 size={12} className="animate-spin" style={{ animationDuration: "2s" }} />
-          <span>处理结果</span>
+          <span>{t("tool.status.processing")}</span>
         </span>
       );
     case "completed":
       return (
         <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
           <CheckCircle2 size={12} />
-          <span>已完成</span>
+          <span>{t("tool.status.completed")}</span>
         </span>
       );
     case "error":
       return (
         <span className="inline-flex items-center gap-1 text-xs text-destructive">
           <XCircle size={12} />
-          <span>失败</span>
+          <span>{t("tool.status.error")}</span>
         </span>
       );
   }
@@ -60,11 +61,11 @@ function StageIcon({ status }: { status: PipelineStage["status"] }) {
   }
 }
 
-function formatProgress(progress: NonNullable<PipelineStage["progress"]>): string {
+function formatProgress(progress: NonNullable<PipelineStage["progress"]>, t: TFunction): string {
   const secs = Math.round(progress.elapsedMs / 1000);
-  const statusLabel = progress.status === "thinking" ? "思考中" : "";
+  const statusLabel = progress.status === "thinking" ? t("tool.progress.thinking") : "";
   const chars = progress.totalChars > 0
-    ? progress.chineseChars > 0 ? `${progress.totalChars}字` : `${progress.totalChars} chars`
+    ? progress.chineseChars > 0 ? t("tool.progress.charsSuffix", { n: progress.totalChars }) : `${progress.totalChars} chars`
     : "";
   const parts = [statusLabel, `${secs}s`, chars].filter(Boolean);
   return parts.join(" · ");
@@ -121,7 +122,7 @@ export function getGeneratedArtifactDetails(exec: ToolExecution): GeneratedArtif
   };
 }
 
-function ShortFictionResultPreview({ exec }: { exec: ToolExecution }) {
+function ShortFictionResultPreview({ exec, t }: { exec: ToolExecution; t: TFunction }) {
   if (!["short_fiction_run", "generate_cover"].includes(exec.tool) || exec.status !== "completed") return null;
   const details = getGeneratedArtifactDetails(exec);
   const coverPath = details?.coverImagePath ?? extractResultPath(exec.result, "Cover image");
@@ -130,14 +131,14 @@ function ShortFictionResultPreview({ exec }: { exec: ToolExecution }) {
     if (!coverError) return null;
     return (
       <div className="mx-3 mb-3 mt-1 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-        封面未生成：{coverError}
+        {t("tool.cover.failed", { error: coverError })}
       </div>
     );
   }
 
   const coverUrl = buildApiUrl(`/project/files/${encodeProjectPath(coverPath)}`);
   if (!coverUrl) return null;
-  const title = details?.title ?? details?.storyId ?? "短篇封面";
+  const title = details?.title ?? details?.storyId ?? t("tool.cover.fallbackTitle");
 
   return (
     <div className="mx-3 mb-3 mt-1 overflow-hidden rounded-xl border border-border/40 bg-background/70">
@@ -173,7 +174,7 @@ function useElapsedTimer(startedAt: number, active: boolean): number {
 
 // -- Pipeline operation (sub_agent) --
 
-function PipelineExecution({ exec }: { exec: ToolExecution }) {
+function PipelineExecution({ exec, t }: { exec: ToolExecution; t: TFunction }) {
   const isActive = exec.status === "running" || exec.status === "processing";
   const [open, setOpen] = useState(isActive);
   const elapsedMs = useElapsedTimer(exec.startedAt, isActive);
@@ -203,11 +204,11 @@ function PipelineExecution({ exec }: { exec: ToolExecution }) {
               ? formatDuration(exec.startedAt, exec.startedAt + elapsedMs)
               : exec.completedAt ? formatDuration(exec.startedAt, exec.completedAt) : ""}
           </span>
-          <ExecStatusBadge status={exec.status} />
+          <ExecStatusBadge status={exec.status} t={t} />
           <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
       </CollapsibleTrigger>
-      <ShortFictionResultPreview exec={exec} />
+      <ShortFictionResultPreview exec={exec} t={t} />
       <CollapsibleContent>
         <div className="px-3 pb-3 pt-1">
           {/* Real-time execution logs */}
@@ -237,7 +238,7 @@ function PipelineExecution({ exec }: { exec: ToolExecution }) {
 
 // -- Utility tools (read/edit/grep/ls) grouped --
 
-function UtilityToolsGroup({ execs }: { execs: ToolExecution[] }) {
+function UtilityToolsGroup({ execs, t }: { execs: ToolExecution[]; t: TFunction }) {
   const [open, setOpen] = useState(false);
   const allDone = execs.every(e => e.status === "completed" || e.status === "error");
   const hasError = execs.some(e => e.status === "error");
@@ -246,7 +247,7 @@ function UtilityToolsGroup({ execs }: { execs: ToolExecution[] }) {
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer text-xs text-muted-foreground">
         <Wrench size={12} />
-        <span>{execs.length} 个文件操作</span>
+        <span>{t("tool.utilities.group", { n: execs.length })}</span>
         {allDone && !hasError && <CheckCircle2 size={10} className="text-green-600 dark:text-green-400" />}
         {hasError && <XCircle size={10} className="text-destructive" />}
         {!allDone && <Loader2 size={10} className="animate-spin text-primary" />}
@@ -305,15 +306,15 @@ export function groupToolExecutionsChronologically(executions: ToolExecution[]):
   return groups;
 }
 
-export function ToolExecutionSteps({ executions }: ToolExecutionStepsProps) {
+export function ToolExecutionSteps({ executions, t }: ToolExecutionStepsProps & { t: TFunction }) {
   const groups = useMemo(() => groupToolExecutionsChronologically(executions), [executions]);
 
   return (
     <div className="space-y-2 mt-2">
       {groups.map((g, i) =>
         g.type === "pipeline"
-          ? <PipelineExecution key={g.exec.id} exec={g.exec} />
-          : <UtilityToolsGroup key={`utils-${i}`} execs={g.execs} />
+          ? <PipelineExecution key={g.exec.id} exec={g.exec} t={t} />
+          : <UtilityToolsGroup key={`utils-${i}`} execs={g.execs} t={t} />
       )}
     </div>
   );

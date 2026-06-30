@@ -20,20 +20,27 @@ export interface BookSidebarProps {
   readonly sse: { messages: ReadonlyArray<SSEMessage>; connected: boolean };
 }
 
-const FOUNDATION_LABELS: Record<string, string> = {
-  "story_bible.md": "世界观设定",
-  "volume_outline.md": "卷纲规划",
-  "book_rules.md": "叙事规则",
-  "current_state.md": "状态卡",
-  "pending_hooks.md": "伏笔池",
-  "subplot_board.md": "支线进度",
-  "emotional_arcs.md": "感情线",
-  "character_matrix.md": "角色矩阵",
+// Foundation file → i18n key map. Labels are looked up via t() at render time.
+const FOUNDATION_FILE_KEYS: Record<string, string> = {
+  "story_bible.md": "foundation.storyBible",
+  "volume_outline.md": "foundation.volumeOutline",
+  "book_rules.md": "foundation.bookRules",
+  "current_state.md": "foundation.currentState",
+  "pending_hooks.md": "foundation.pendingHooks",
+  "subplot_board.md": "foundation.subplotBoard",
+  "emotional_arcs.md": "foundation.emotionalArcs",
+  "character_matrix.md": "foundation.characterMatrix",
 };
+
+function resolveFoundationLabel(file: string | null, t: TFunction): string {
+  if (!file) return "";
+  const key = FOUNDATION_FILE_KEYS[file];
+  return key ? t(key) : file;
+}
 
 const streamdownPlugins = { cjk };
 
-function ArtifactView({ bookId }: { readonly bookId: string }) {
+function ArtifactView({ bookId, t }: { readonly bookId: string; t: TFunction }) {
   const artifactFile = useChatStore((s) => s.artifactFile);
   const artifactChapter = useChatStore((s) => s.artifactChapter);
   const closeArtifact = useChatStore((s) => s.closeArtifact);
@@ -45,8 +52,8 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
 
   const isChapter = artifactChapter !== null;
   const label = isChapter
-    ? `第 ${artifactChapter} 章`
-    : artifactFile ? FOUNDATION_LABELS[artifactFile] ?? artifactFile : "";
+    ? t("chapter.label", { n: artifactChapter ?? 0 })
+    : resolveFoundationLabel(artifactFile, t);
 
   useEffect(() => {
     setEditing(false);
@@ -136,7 +143,7 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
             <Loader2 size={16} className="text-muted-foreground animate-spin" />
           </div>
         ) : content === null ? (
-          <p className="text-xs text-muted-foreground/50 italic px-4 py-3">文件不存在</p>
+          <p className="text-xs text-muted-foreground/50 italic px-4 py-3">{t("bookSidebar.fileMissing")}</p>
         ) : editing ? (
           <textarea
             value={editContent}
@@ -154,7 +161,7 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
 }
 
 function PanelView({ bookId, theme: _theme, t, sse }: BookSidebarProps) {
-  const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
+  // (kept for backward compat \u2014 not used after i18n migration)
 
   // Show writing indicator only during pipeline operations (write/audit/revise)
   const [activeOp, setActiveOp] = useState<string | null>(null);
@@ -177,9 +184,9 @@ function PanelView({ bookId, theme: _theme, t, sse }: BookSidebarProps) {
   }, [sse.messages]);
 
   const OP_LABELS: Record<string, string> = {
-    write: isZh ? "正在写作中..." : "Writing...",
-    audit: isZh ? "正在审计中..." : "Auditing...",
-    revise: isZh ? "正在修订中..." : "Revising...",
+    write: t("bookSidebar.op.write"),
+    audit: t("bookSidebar.op.audit"),
+    revise: t("bookSidebar.op.revise"),
   };
 
   return (
@@ -192,11 +199,11 @@ function PanelView({ bookId, theme: _theme, t, sse }: BookSidebarProps) {
           </span>
         </div>
       )}
-      <ProgressSection sse={sse} />
-      <ChaptersSection bookId={bookId} isZh={isZh} />
-      <CharacterSection bookId={bookId} />
-      <FoundationSection bookId={bookId} />
-      <SummarySection bookId={bookId} />
+      <ProgressSection sse={sse} t={t} />
+      <ChaptersSection bookId={bookId} t={t} />
+      <CharacterSection bookId={bookId} t={t} />
+      <FoundationSection bookId={bookId} t={t} />
+      <SummarySection bookId={bookId} t={t} />
     </div>
   );
 }
@@ -244,7 +251,7 @@ export function BookSidebar({ bookId, theme, t, sse }: BookSidebarProps) {
         className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
       />
       {sidebarView === "artifact" ? (
-        <ArtifactView bookId={bookId} />
+        <ArtifactView bookId={bookId} t={t} />
       ) : (
         <PanelView bookId={bookId} theme={theme} t={t} sse={sse} />
       )}
@@ -273,13 +280,13 @@ export function BookSidebarToggle({ bookId, theme, t, sse }: BookSidebarProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
-              <span className="text-xs font-medium text-muted-foreground">书籍信息</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("bookSidebar.title")}</span>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <PanelRightClose size={14} />
               </button>
             </div>
             {sidebarView === "artifact" ? (
-              <ArtifactView bookId={bookId} />
+              <ArtifactView bookId={bookId} t={t} />
             ) : (
               <PanelView bookId={bookId} theme={theme} t={t} sse={sse} />
             )}

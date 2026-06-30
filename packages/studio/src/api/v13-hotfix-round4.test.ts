@@ -108,6 +108,10 @@ function cloneProjectConfig(): typeof projectConfig {
 // ---------------------------------------------------------------------------
 
 describe("Issue 1 — Studio: old book (no outline/story_frame.md)", () => {
+  // Server boot + filesystem setup is slow on Windows; give the suite more headroom
+  // than vitest's 5s default so cold-start tests don't flake in CI.
+  vi.setConfig({ testTimeout: 30_000 });
+
   let root: string;
   let storyDir: string;
 

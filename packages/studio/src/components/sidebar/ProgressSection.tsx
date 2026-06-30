@@ -3,32 +3,36 @@ import type { SSEMessage } from "../../hooks/use-sse";
 import { Loader2, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { SidebarCard } from "./SidebarCard";
+import type { TFunction } from "../../hooks/use-i18n";
 
-const INIT_BOOK_STEPS = [
-  "生成基础设定",
-  "保存书籍配置",
-  "写入基础设定文件",
-  "初始化控制文档",
-  "创建初始快照",
+// Steps are tracked by stable i18n keys so re-renders don't lose the
+// active/completed state when the labels swap on language change.
+const INIT_BOOK_STEP_KEYS = [
+  "progress.init.foundation",
+  "progress.init.book",
+  "progress.init.outline",
+  "progress.init.tooling",
+  "progress.init.completed",
 ] as const;
 
-const WRITE_CHAPTER_STEPS = [
-  "准备章节输入",
-  "撰写章节草稿",
-  "落盘最终章节",
-  "生成最终真相文件",
-  "校验真相文件变更",
-  "同步记忆索引",
-  "更新章节索引与快照",
+const WRITE_CHAPTER_STEP_KEYS = [
+  "progress.write.planning",
+  "progress.write.writing",
+  "progress.write.outlining",
+  "progress.write.auditing",
+  "progress.write.revising",
+  "progress.write.polishing",
+  "progress.write.export",
 ] as const;
 
 type StepStatus = "pending" | "active" | "done";
 
 interface ProgressSectionProps {
   readonly sse: { messages: ReadonlyArray<SSEMessage>; connected: boolean };
+  readonly t: TFunction;
 }
 
-export function ProgressSection({ sse }: ProgressSectionProps) {
+export function ProgressSection({ sse, t }: ProgressSectionProps) {
   const [operation, setOperation] = useState<"idle" | "init" | "write">("idle");
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [activeStep, setActiveStep] = useState<string | null>(null);
@@ -48,7 +52,7 @@ export function ProgressSection({ sse }: ProgressSectionProps) {
       setActiveStep(null);
     } else if (last.event === "book:created" || last.event === "write:complete") {
       // Mark all steps done
-      const steps = operation === "init" ? INIT_BOOK_STEPS : WRITE_CHAPTER_STEPS;
+      const steps = operation === "init" ? INIT_BOOK_STEP_KEYS : WRITE_CHAPTER_STEP_KEYS;
       setCompletedSteps(new Set(steps));
       setActiveStep(null);
     } else if (last.event === "log") {
@@ -69,14 +73,14 @@ export function ProgressSection({ sse }: ProgressSectionProps) {
     }
   }, [sse.messages]);
 
-  const steps = operation === "init" ? INIT_BOOK_STEPS
-    : operation === "write" ? WRITE_CHAPTER_STEPS
+  const steps = operation === "init" ? INIT_BOOK_STEP_KEYS
+    : operation === "write" ? WRITE_CHAPTER_STEP_KEYS
     : null;
 
   if (!steps) return null;
 
   return (
-    <SidebarCard title="执行">
+    <SidebarCard title={t("progress.title")}>
       <ul className="space-y-2">
         {steps.map((step, i) => {
           const status: StepStatus = completedSteps.has(step) ? "done"
@@ -91,7 +95,7 @@ export function ProgressSection({ sse }: ProgressSectionProps) {
                 status === "active" && "text-foreground font-medium",
                 status === "pending" && "text-muted-foreground/50",
               )}>
-                {step}
+                {t(step)}
               </span>
             </li>
           );

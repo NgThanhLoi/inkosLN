@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
+import { useI18n } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
 import { fetchJson } from "../hooks/use-api";
 import { chatSelectors, useChatStore } from "../store/chat";
@@ -67,6 +68,9 @@ interface ServiceConfigPayload {
 // -- Component --
 
 export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-create", nav, theme, t, sse: _sse }: ChatPageProps) {
+  // `useI18n()` is already called in App.tsx; we mirror its `lang` here for
+  // places that need to branch on language instead of going through `t()`.
+  const { lang } = useI18n();
   // -- Store selectors --
   const messages = useChatStore(chatSelectors.activeMessages);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
@@ -86,7 +90,6 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
   const hasBook = Boolean(activeBookId);
 
   // Derived: is the assistant currently streaming/thinking/executing tools?
@@ -157,12 +160,12 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   }, [services, modelsByService]);
 
   const selectedModelLabel = useMemo(() => {
-    if (!selectedModel) return "选择模型";
+    if (!selectedModel) return t("chat.modelPicker.selectModel");
     const group = groupedModels.find((item) => item.service === selectedService);
     const model = group?.models.find((item) => item.id === selectedModel);
     const modelLabel = model?.name ?? selectedModel;
     return group ? `${group.label} · ${modelLabel}` : modelLabel;
-  }, [groupedModels, selectedModel, selectedService]);
+  }, [groupedModels, selectedModel, selectedService, t]);
 
   // Auto-select from saved service config first, then fall back to the first available model.
   useEffect(() => {
@@ -272,9 +275,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     void sendMessage(activeSessionId, command, activeBookId);
   };
 
-  const emptyGuidance = isZh
-    ? "\u544A\u8BC9\u6211\u4F60\u60F3\u5199\u4EC0\u4E48\u2014\u2014\u9898\u6750\u3001\u4E16\u754C\u89C2\u3001\u4E3B\u89D2\u3001\u6838\u5FC3\u51B2\u7A81"
-    : "Tell me what you want to write \u2014 genre, world, protagonist, core conflict";
+  const emptyGuidance = t("chat.guidance");
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
@@ -339,7 +340,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                           );
                         }
                         if (item.kind === "tools") {
-                          return <ToolExecutionSteps key={`x-${item.startIdx}`} executions={item.parts.map(p => p.execution)} />;
+                          return <ToolExecutionSteps key={`x-${item.startIdx}`} executions={item.parts.map(p => p.execution)} t={t} />;
                         }
                         if (item.kind === "text" && item.part.content) {
                           return (
@@ -373,7 +374,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
               <Message from="assistant">
                 <MessageContent>
                   <Shimmer className="text-sm" duration={1.5}>
-                    {isZh ? "思考中..." : "Thinking..."}
+                    {t("chat.shimmer")}
                   </Shimmer>
                 </MessageContent>
               </Message>
@@ -389,7 +390,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
           <QuickActions
             onAction={handleQuickAction}
             disabled={loading || !activeSessionId}
-            isZh={isZh}
+            t={t}
+            lang={lang}
           />
         </div>
       )}
@@ -404,7 +406,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(input); } }}
-                  placeholder={isZh ? "输入指令..." : "Enter command..."}
+                  placeholder={t("chat.placeholder")}
                   disabled={loading || !activeSessionId}
                   rows={1}
                   className="flex-1 bg-transparent text-sm leading-6 placeholder:text-muted-foreground/50 outline-none! border-none! ring-0! shadow-none focus:outline-none! focus:ring-0! focus:border-none! resize-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
@@ -420,7 +422,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
               </div>
               <div className="flex items-center gap-2 px-3 pb-2 border-t border-border/20 pt-1.5">
                 {modelPickerStatus === "loading" ? (
-                  <span className="text-xs text-muted-foreground/40 animate-pulse">加载模型...</span>
+                  <span className="text-xs text-muted-foreground/40 animate-pulse">{t("chat.modelPicker.loading")}</span>
                 ) : modelPickerStatus === "ready" ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted text-sm transition-colors cursor-pointer">
@@ -435,6 +437,9 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                       selectedService={selectedService}
                       onSelect={setSelectedModel}
                       onManage={() => nav.toServices()}
+                      searchPlaceholder={t("chat.modelPicker.search")}
+                      emptyText={t("chat.modelPicker.empty")}
+                      manageText={t("chat.modelPicker.manage")}
                     />
                   </DropdownMenu>
                 ) : (
@@ -442,7 +447,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                     onClick={() => nav.toServices()}
                     className="text-xs text-muted-foreground/50 hover:text-primary transition-colors"
                   >
-                    配置模型 →
+                    {t("chat.modelPicker.configure")}
                   </button>
                 )}
               </div>
@@ -459,12 +464,18 @@ function ModelPickerContent({
   selectedService,
   onSelect,
   onManage,
+  searchPlaceholder,
+  emptyText,
+  manageText,
 }: {
   groupedModels: ReadonlyArray<{ service: string; label: string; models: ReadonlyArray<{ id: string; name?: string }> }>;
   selectedModel: string | null;
   selectedService: string | null;
   onSelect: (model: string, service: string) => void;
   onManage: () => void;
+  searchPlaceholder: string;
+  emptyText: string;
+  manageText: string;
 }) {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => filterModelGroups(groupedModels, search), [groupedModels, search]);
@@ -476,7 +487,7 @@ function ModelPickerContent({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索模型..."
+          placeholder={searchPlaceholder}
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
@@ -507,13 +518,13 @@ function ModelPickerContent({
         ))}
         {filtered.length === 0 && (
           <div className="px-3 py-4 text-xs text-muted-foreground/50 text-center italic">
-            无匹配模型
+            {emptyText}
           </div>
         )}
       </div>
       <div className="border-t border-border/30">
         <DropdownMenuItem onClick={onManage} className="text-primary">
-          管理服务商
+          {manageText}
         </DropdownMenuItem>
       </div>
     </DropdownMenuContent>

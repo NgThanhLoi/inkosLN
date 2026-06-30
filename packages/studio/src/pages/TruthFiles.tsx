@@ -132,9 +132,9 @@ export function TruthFiles({ bookId, nav, theme, t }: { bookId: string; nav: Nav
                   data-testid="legacy-shim-warning"
                   className="mb-3 px-3 py-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs leading-relaxed"
                 >
-                  <div className="font-medium">兼容层只读 / Read-only compat shim</div>
+                  <div className="font-medium">{t("truth.shimTitle")}</div>
                   <div className="mt-1">
-                    本文件已废弃，仅供外部读取。权威来源：
+                    {t("truth.shimBody")}
                     <code className="ml-1 px-1 py-0.5 rounded bg-background/40 font-mono">
                       {SHIM_AUTHORITATIVE_PATH[selected] ?? "outline/"}
                     </code>
@@ -149,7 +149,7 @@ export function TruthFiles({ bookId, nav, theme, t }: { bookId: string; nav: Nav
                       className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md ${c.btnSecondary}`}
                     >
                       <X size={14} />
-                      Cancel
+                      {t("common.cancel")}
                     </button>
                     <button
                       onClick={handleSaveEdit}
@@ -167,7 +167,7 @@ export function TruthFiles({ bookId, nav, theme, t }: { bookId: string; nav: Nav
                       className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md ${c.btnSecondary}`}
                     >
                       <Pencil size={14} />
-                      Edit
+                      {t("common.edit")}
                     </button>
                   )
                 )}

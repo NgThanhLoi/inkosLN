@@ -14,6 +14,7 @@ import {
   type ServiceDetailModelInfo as ModelInfo,
   type ServiceDetailVerifiedProbe as VerifiedProbe,
 } from "./service-detail-state";
+import type { TFunction } from "../hooks/use-i18n";
 
 interface Nav {
   toServices: () => void;
@@ -30,7 +31,7 @@ function DetailSkeleton() {
   );
 }
 
-export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: Nav }) {
+export function ServiceDetailPage({ serviceId, nav, t }: { serviceId: string; nav: Nav; t: TFunction }) {
   // -- Service store --
   const services = useServiceStore((s) => s.services);
   const loading = useServiceStore((s) => s.servicesLoading);
@@ -81,7 +82,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
 
   const resolvedCustomName = persistedCustomName || customName.trim() || "Custom";
   const effectiveServiceId = isCustom ? `custom:${resolvedCustomName}` : serviceId;
-  const label = isCustom ? (customName || persistedCustomName || "自定义服务") : (svc?.label ?? serviceId);
+  const label = isCustom ? (customName || persistedCustomName || t("services.detail.customFallback")) : (svc?.label ?? serviceId);
   const storeModels = useServiceStore((s) => s.modelsByService[effectiveServiceId]);
 
   useEffect(() => {
@@ -130,11 +131,11 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   const handleTest = async () => {
     const trimmedKey = apiKey.trim();
     if (!trimmedKey && !isCustom) {
-      setStatus({ state: "error", message: "请先输入 API Key" });
+      setStatus({ state: "error", message: t("services.detail.errors.apiKeyRequired") });
       return;
     }
     if (isCustom && !baseUrl.trim()) {
-      setStatus({ state: "error", message: "请先填写 Base URL" });
+      setStatus({ state: "error", message: t("services.detail.errors.baseUrlRequired") });
       return;
     }
     setApiKey(trimmedKey);
@@ -169,17 +170,17 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         setStoreModels(effectiveServiceId, models); // Write to global store
       } else {
         setVerifiedProbe(null);
-        setStatus({ state: "error", message: result.error ?? "连接失败" });
+        setStatus({ state: "error", message: result.error ?? t("services.detail.errors.connectFailed") });
         clearStoreModels(effectiveServiceId);
       }
     } catch (e) {
       setVerifiedProbe(null);
-      setStatus({ state: "error", message: e instanceof Error ? e.message : "连接失败" });
+      setStatus({ state: "error", message: e instanceof Error ? e.message : t("services.detail.errors.connectFailed") });
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`删除“${label}”的配置和密钥？`)) return;
+    if (!window.confirm(t("services.detail.confirmDelete", { name: label }))) return;
     setStatus({ state: "saving" });
     try {
       await deleteServiceConfig(effectiveServiceId);
@@ -187,7 +188,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
       await refreshServices();
       nav.toServices();
     } catch (e) {
-      setStatus({ state: "error", message: e instanceof Error ? e.message : "删除失败" });
+      setStatus({ state: "error", message: e instanceof Error ? e.message : t("services.detail.errors.deleteFailed") });
     }
   };
 
@@ -195,7 +196,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
     const trimmedKey = apiKey.trim();
     setApiKey(trimmedKey);
     if (isCustom && !baseUrl.trim()) {
-      setStatus({ state: "error", message: "请先填写 Base URL" });
+      setStatus({ state: "error", message: t("services.detail.errors.baseUrlRequired") });
       return;
     }
     setStatus({ state: "saving" });
@@ -228,7 +229,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
       await refreshServices();
       nav.toServices();
     } catch (e) {
-      setStatus({ state: "error", message: e instanceof Error ? e.message : "保存失败" });
+      setStatus({ state: "error", message: e instanceof Error ? e.message : t("services.detail.errors.saveFailed") });
     }
   };
 
@@ -240,7 +241,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card/60 px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/50 transition-colors"
       >
         <ArrowLeft size={14} />
-        返回服务商管理
+        {t("services.detail.back")}
       </button>
 
       {/* Title + status */}
@@ -248,7 +249,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         <h1 className="font-serif text-2xl">{label}</h1>
         {isConnected && (
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium">
-            已连接
+            {t("services.detail.connected")}
           </span>
         )}
       </div>
@@ -258,9 +259,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         {/* Custom fields */}
         {isCustom && (
         <div className="grid grid-cols-2 gap-4">
-            <Field label="服务名称">
+            <Field label={t("services.detail.customName")}>
               <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
-                placeholder="例如：本地 Ollama" className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm" />
+                placeholder={t("services.detail.customNamePlaceholder")} className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm" />
             </Field>
             <Field label="Base URL">
               <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
@@ -270,7 +271,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         )}
 
         {/* API Key */}
-        <Field label="API Key">
+        <Field label={t("services.detail.apiKey")}>
           <div className="relative">
             <input
               type={showKey ? "text" : "password"} value={apiKey}
@@ -289,55 +290,65 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           <button onClick={handleTest} disabled={isBusy}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-lg border border-border/60 hover:bg-secondary/50 transition-colors disabled:opacity-50">
             {status.state === "testing" && <Loader2 size={12} className="animate-spin" />}
-            测试连接
+            {t("services.detail.test")}
           </button>
           <button onClick={handleSave} disabled={isBusy}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
             {status.state === "saving" && <Loader2 size={12} className="animate-spin" />}
-            保存
+            {t("services.detail.save")}
           </button>
           {(isConnected || isCustom) && (
             <button onClick={handleDelete} disabled={isBusy}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50">
               <Trash2 size={12} />
-              删除配置
+              {t("services.detail.delete")}
             </button>
           )}
           {/* Status feedback */}
           {status.state === "connected" && (
             <span className="text-xs text-emerald-500">
-              连接成功，{models.length} 个模型
-              {detectedModel ? `，已自动匹配 ${detectedModel}${detectedConfig ? ` / ${detectedConfig.apiFormat === "responses" ? "Responses" : "Chat"} / ${detectedConfig.stream ? "流式" : "非流式"}` : ""}` : ""}
+              {t("services.detail.success.connected", { n: models.length })}
+              {detectedModel
+                ? t("services.detail.success.autoMatched", {
+                    model: detectedModel,
+                    apiFormat: detectedConfig?.apiFormat === "responses"
+                      ? t("services.detail.protocol.responses")
+                      : t("services.detail.protocol.chat"),
+                    streamLabel: detectedConfig?.stream
+                      ? t("services.detail.streamLabel.stream")
+                      : t("services.detail.streamLabel.noStream"),
+                  })
+                : ""}
             </span>
           )}
           {status.state === "error" && (
             <span className="text-xs text-destructive">{status.message}</span>
           )}
           {status.state === "saved" && (
-            <span className="text-xs text-emerald-500">已保存</span>
+            <span className="text-xs text-emerald-500">{t("services.detail.success.saved")}</span>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="协议类型">
+          <Field label={t("services.detail.protocol")}>
             <select
               value={apiFormat}
               onChange={(e) => setApiFormat(e.target.value as "chat" | "responses")}
               className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
             >
-              <option value="chat">Chat / Completions</option>
-              <option value="responses">Responses</option>
+              <option value="chat">{t("services.detail.protocol.chat")}</option>
+              <option value="responses">{t("services.detail.protocol.responses")}</option>
             </select>
           </Field>
 
-          <Field label="流式响应">
+          <Field label={t("services.detail.streaming")}>
             <label className="flex h-10 items-center gap-2 rounded-lg border border-border/60 bg-background px-3 text-sm">
               <input
                 type="checkbox"
                 checked={stream}
                 onChange={(e) => setStream(e.target.checked)}
               />
-              <span>{stream ? "开启" : "关闭"}</span>
+              <span>{stream ? t("services.detail.streaming.on") : t("services.detail.streaming.off")}</span>
             </label>
           </Field>
         </div>
@@ -346,7 +357,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         {isConnected && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground/70 font-medium uppercase tracking-wider">
-              可用模型（{models.length}）
+              {t("services.detail.availableModels", { n: models.length })}
             </p>
             {models.length > 0 ? (
               <div className="flex gap-1.5 flex-wrap">
@@ -357,7 +368,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground/60">点击“测试连接”查看可用模型</p>
+              <p className="text-xs text-muted-foreground/60">{t("services.detail.availableModelsEmpty")}</p>
             )}
           </div>
         )}
@@ -365,10 +376,10 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         {/* Advanced params */}
         <details className="group pt-2 border-t border-border/20">
           <summary className="text-xs text-muted-foreground/60 cursor-pointer select-none hover:text-muted-foreground transition-colors py-2">
-            高级参数
+            {t("services.detail.advanced")}
           </summary>
           <div className="space-y-4 pt-2">
-            <Field label="temperature">
+            <Field label={t("services.detail.temperature")}>
               <div className="flex items-center gap-3">
                 <input type="range" min="0" max="2" step="0.05" value={temperature}
                   onChange={(e) => setTemperature(e.target.value)} className="flex-1 accent-primary h-1" />

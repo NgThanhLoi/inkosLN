@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { useI18n } from "../hooks/use-i18n";
 
 interface ServiceQuickLink {
   readonly label: string;
@@ -31,6 +32,7 @@ export function ServiceQuickLinks({
   readonly variant?: "card" | "detail";
   readonly className?: string;
 }) {
+  const { t } = useI18n();
   const links = getServiceQuickLinks(serviceId);
   if (links.length === 0) return null;
 
@@ -43,7 +45,7 @@ export function ServiceQuickLinks({
         className,
       ].filter(Boolean).join(" ")}
     >
-      {!compact && <span className="mr-0.5">配置入口</span>}
+      {!compact && <span className="mr-0.5">{t("services.quickLinks.prefix")}</span>}
       {links.map((link) => (
         <a
           key={link.href}

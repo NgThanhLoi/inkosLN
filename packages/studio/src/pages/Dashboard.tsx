@@ -151,14 +151,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-32 space-y-4">
       <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      <span className="text-sm text-muted-foreground animate-pulse">Gathering manuscripts...</span>
+      <span className="text-sm text-muted-foreground animate-pulse">{t("dash.loading")}</span>
     </div>
   );
 
   if (error) return (
     <div className="flex flex-col items-center justify-center py-20 bg-destructive/5 border border-destructive/20 rounded-2xl">
       <AlertCircle className="text-destructive mb-4" size={32} />
-      <h2 className="text-lg font-semibold text-destructive">Failed to load library</h2>
+      <h2 className="text-lg font-semibold text-destructive">{t("dash.loadErrorTitle")}</h2>
       <p className="text-sm text-muted-foreground mt-1">{error}</p>
     </div>
   );
@@ -189,14 +189,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
       {!hasServices && (
         <div className="rounded-lg border border-border/60 bg-card px-5 py-4 mb-8 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">还没有配置 AI 模型</div>
-            <div className="text-xs text-muted-foreground mt-0.5">配好一个服务商才能开始创作</div>
+            <div className="text-sm font-medium">{t("dash.banner.title")}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t("dash.banner.body")}</div>
           </div>
           <button
             onClick={nav.toServices}
             className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shrink-0"
           >
-            去配置
+            {t("dash.banner.cta")}
           </button>
         </div>
       )}

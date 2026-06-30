@@ -4,58 +4,59 @@ import {
   FileOutput,
   TrendingUp,
 } from "lucide-react";
+import type { TFunction } from "../../hooks/use-i18n";
 
 export interface QuickActionsProps {
   readonly onAction: (command: string) => void;
   readonly disabled: boolean;
-  readonly isZh: boolean;
+  readonly t: TFunction;
+  readonly lang: "zh" | "en" | "vi";
 }
 
 interface ChipDef {
   readonly icon: React.ReactNode;
-  readonly labelZh: string;
-  readonly labelEn: string;
-  readonly commandZh: string;
-  readonly commandEn: string;
+  readonly labelKey: string;
+  readonly commandKey: string;
+  // English fallback commands: the action text needs to be valid Chinese
+  // when `lang === "zh"` and English-style when not. Commands map via
+  // explicit language keys so we don't rely on the i18n templates (the
+  // command strings are not user-facing labels but actionable input).
+  readonly commandByLang: Readonly<Record<"zh" | "en" | "vi", string>>;
 }
 
 const CHIPS: ReadonlyArray<ChipDef> = [
   {
     icon: <Zap size={12} />,
-    labelZh: "写下一章",
-    labelEn: "Write next",
-    commandZh: "写下一章",
-    commandEn: "write next",
+    labelKey: "quickActions.writeNextLabel",
+    commandKey: "quickActions.writeNextCommand",
+    commandByLang: { zh: "写下一章", en: "write next", vi: "viết chương tiếp theo" },
   },
   {
     icon: <Search size={12} />,
-    labelZh: "审计",
-    labelEn: "Audit",
-    commandZh: "审计",
-    commandEn: "audit",
+    labelKey: "quickActions.auditLabel",
+    commandKey: "quickActions.auditCommand",
+    commandByLang: { zh: "审计", en: "audit", vi: "kiểm tra chương hiện tại" },
   },
   {
     icon: <FileOutput size={12} />,
-    labelZh: "导出",
-    labelEn: "Export",
-    commandZh: "导出全书",
-    commandEn: "export book",
+    labelKey: "quickActions.exportLabel",
+    commandKey: "quickActions.exportCommand",
+    commandByLang: { zh: "导出全书", en: "export book", vi: "xuất bản thảo hiện tại" },
   },
   {
     icon: <TrendingUp size={12} />,
-    labelZh: "市场雷达",
-    labelEn: "Market radar",
-    commandZh: "扫描市场趋势",
-    commandEn: "scan market trends",
+    labelKey: "quickActions.radarLabel",
+    commandKey: "quickActions.radarCommand",
+    commandByLang: { zh: "扫描市场趋势", en: "scan market trends", vi: "quét radar thị trường" },
   },
 ];
 
-export function QuickActions({ onAction, disabled, isZh }: QuickActionsProps) {
+export function QuickActions({ onAction, disabled, t, lang }: QuickActionsProps) {
   return (
     <div className="flex gap-2 overflow-x-auto px-1 py-1">
       {CHIPS.map((chip) => {
-        const label = isZh ? chip.labelZh : chip.labelEn;
-        const command = isZh ? chip.commandZh : chip.commandEn;
+        const label = t(chip.labelKey);
+        const command = chip.commandByLang[lang];
         return (
           <button
             key={label}

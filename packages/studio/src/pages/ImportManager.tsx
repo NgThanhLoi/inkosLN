@@ -49,9 +49,9 @@ export function ImportManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TF
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: chText, splitRegex: chSplitRegex || undefined }),
       });
-      setStatus(`Imported ${data.importedCount} chapters`);
+      setStatus(t("import.successChapters", { n: data.importedCount ?? 0 }));
     } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus(t("style.error", { message: e instanceof Error ? e.message : String(e) }));
     }
     setLoading(false);
   };
@@ -62,9 +62,9 @@ export function ImportManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TF
     setStatus("");
     try {
       await postApi(`/books/${canonTarget}/import/canon`, { fromBookId: canonFrom });
-      setStatus("Canon imported successfully!");
+      setStatus(t("import.successCanon"));
     } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus(t("style.error", { message: e instanceof Error ? e.message : String(e) }));
     }
     setLoading(false);
   };
@@ -82,9 +82,9 @@ export function ImportManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TF
           genre: ffGenre, language: ffLang,
         }),
       });
-      setStatus(`Fanfic created: ${data.bookId}`);
+      setStatus(t("import.successFanfic", { id: data.bookId ?? "" }));
     } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus(t("style.error", { message: e instanceof Error ? e.message : String(e) }));
     }
     setLoading(false);
   };
@@ -206,7 +206,7 @@ export function ImportManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TF
         )}
 
         {status && (
-          <div className={`text-sm px-3 py-2 rounded-lg ${status.startsWith("Error") ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
+          <div className={`text-sm px-3 py-2 rounded-lg ${/^error:|^lỗi:/i.test(status) ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
             {status}
           </div>
         )}

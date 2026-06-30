@@ -20,6 +20,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
 
 import { CodeBlock } from "./code-block";
+import { useI18n } from "@/hooks/use-i18n";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -44,14 +45,14 @@ export type ToolHeaderProps = {
     }
 );
 
-const statusLabels: Record<ToolPart["state"], string> = {
-  "approval-requested": "等待确认",
-  "approval-responded": "已响应",
-  "input-available": "执行中",
-  "input-streaming": "处理中",
-  "output-available": "已完成",
-  "output-denied": "已拒绝",
-  "output-error": "出错",
+const statusLabelKeys: Record<ToolPart["state"], string> = {
+  "approval-requested": "tool.status.approvalRequested",
+  "approval-responded": "tool.status.approvalResponded",
+  "input-available": "tool.status.inputAvailable",
+  "input-streaming": "tool.status.inputStreaming",
+  "output-available": "tool.status.outputAvailable",
+  "output-denied": "tool.status.outputDenied",
+  "output-error": "tool.status.outputError",
 };
 
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
@@ -64,12 +65,15 @@ const statusIcons: Record<ToolPart["state"], ReactNode> = {
   "output-error": <XCircleIcon className="size-4 text-red-600" />,
 };
 
-export const getStatusBadge = (status: ToolPart["state"]) => (
-  <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
-    {statusIcons[status]}
-    {statusLabels[status]}
-  </Badge>
-);
+export const getStatusBadge = (status: ToolPart["state"]) => {
+  const { t } = useI18n();
+  return (
+    <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
+      {statusIcons[status]}
+      {t(statusLabelKeys[status])}
+    </Badge>
+  );
+};
 
 export const ToolHeader = ({
   className,
@@ -116,16 +120,19 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolPart["input"];
 };
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  const { t } = useI18n();
+  return (
+    <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {t("tool.parameters")}
+      </h4>
+      <div className="rounded-md bg-muted/50">
+        <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolPart["output"];
@@ -138,6 +145,7 @@ export const ToolOutput = ({
   errorText,
   ...props
 }: ToolOutputProps) => {
+  const { t } = useI18n();
   if (!(output || errorText)) {
     return null;
   }
@@ -155,7 +163,7 @@ export const ToolOutput = ({
   return (
     <div className={cn("space-y-2", className)} {...props}>
       <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
+        {errorText ? t("tool.error") : t("tool.result")}
       </h4>
       <div
         className={cn(

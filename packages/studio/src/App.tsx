@@ -24,6 +24,7 @@ import { useSessionEvents } from "./hooks/use-session-events";
 import { useTheme } from "./hooks/use-theme";
 import { useI18n } from "./hooks/use-i18n";
 import { postApi, putApi, useApi } from "./hooks/use-api";
+import { setLocalizerLang } from "./lib/error-copy";
 import { Sun, Moon } from "lucide-react";
 import { House } from "lucide-react";
 
@@ -48,6 +49,13 @@ export function App() {
   const [ready, setReady] = useState(false);
 
   const isDark = theme === "dark";
+
+  // Keep the runtime error localizer in sync with the UI language so
+  // localizedKnownRuntimeMessage() returns the right translation without
+  // having to thread `lang` through every caller.
+  useEffect(() => {
+    setLocalizerLang(currentLang);
+  }, [currentLang]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -225,12 +233,12 @@ export function App() {
           )}
           {route.page === "services" && (
             <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
-              <ServiceListPage nav={nav} />
+              <ServiceListPage nav={nav} t={t} />
             </div>
           )}
           {route.page === "service-detail" && (
             <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
-              <ServiceDetailPage serviceId={route.serviceId} nav={nav} />
+              <ServiceDetailPage serviceId={route.serviceId} nav={nav} t={t} />
             </div>
           )}
           {route.page === "truth" && (

@@ -4,6 +4,7 @@ import { useChatStore } from "../../store/chat";
 import { fetchJson } from "../../hooks/use-api";
 import { SidebarCard } from "./SidebarCard";
 import { cn } from "../../lib/utils";
+import type { TFunction } from "../../hooks/use-i18n";
 
 interface CharacterInfo {
   name: string;
@@ -51,7 +52,13 @@ function getRoleColor(role: string): string {
   return "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400";
 }
 
-function CharacterCard({ char }: { readonly char: CharacterInfo }) {
+const FIELD_KEYS_TO_SKIP = new Set([
+  "定位", "Role",
+  "标签", "Tags",
+  "当前", "Current",
+]);
+
+function CharacterCard({ char, t }: { readonly char: CharacterInfo; readonly t: TFunction }) {
   const [expanded, setExpanded] = useState(false);
   const role = char.fields["定位"] ?? char.fields["Role"] ?? "";
   const tags = char.fields["标签"] ?? char.fields["Tags"] ?? "";
@@ -77,13 +84,13 @@ function CharacterCard({ char }: { readonly char: CharacterInfo }) {
       {expanded && (
         <div className="px-2.5 pb-2.5 space-y-1">
           {tags && (
-            <p className="text-xs text-muted-foreground"><span className="text-muted-foreground/60">标签</span> {tags}</p>
+            <p className="text-xs text-muted-foreground"><span className="text-muted-foreground/60">{t("character.field.tags")}</span> {tags}</p>
           )}
           {current && (
-            <p className="text-xs text-muted-foreground"><span className="text-muted-foreground/60">当前</span> {current}</p>
+            <p className="text-xs text-muted-foreground"><span className="text-muted-foreground/60">{t("character.field.current")}</span> {current}</p>
           )}
           {Object.entries(char.fields)
-            .filter(([k]) => !["定位", "Role", "标签", "Tags", "当前", "Current"].includes(k))
+            .filter(([k]) => !FIELD_KEYS_TO_SKIP.has(k))
             .map(([key, val]) => (
               <p key={key} className="text-xs text-muted-foreground">
                 <span className="text-muted-foreground/60">{key}</span> {val}
@@ -97,9 +104,10 @@ function CharacterCard({ char }: { readonly char: CharacterInfo }) {
 
 interface CharacterSectionProps {
   readonly bookId: string;
+  readonly t: TFunction;
 }
 
-export function CharacterSection({ bookId }: CharacterSectionProps) {
+export function CharacterSection({ bookId, t }: CharacterSectionProps) {
   const [characters, setCharacters] = useState<CharacterInfo[]>([]);
   const bookDataVersion = useChatStore((s) => s.bookDataVersion);
 
@@ -118,10 +126,10 @@ export function CharacterSection({ bookId }: CharacterSectionProps) {
   if (characters.length === 0) return null;
 
   return (
-    <SidebarCard title="角色">
+    <SidebarCard title={t("character.title")}>
       <div className="space-y-1.5">
         {characters.map((char) => (
-          <CharacterCard key={char.name} char={char} />
+          <CharacterCard key={char.name} char={char} t={t} />
         ))}
       </div>
     </SidebarCard>

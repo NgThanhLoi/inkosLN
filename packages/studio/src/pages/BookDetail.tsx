@@ -175,12 +175,7 @@ export function BookDetail({
   };
 
   const handleRewrite = async (chapterNum: number) => {
-    const brief = window.prompt(
-      data?.book.language === "en"
-        ? "Optional rewrite brief for this run only. Leave blank to use existing focus."
-        : "可选：输入这次重写要遵循的补充想法。留空则沿用现有 focus。",
-      "",
-    );
+    const brief = window.prompt(t("book.rewritePrompt"), "");
     if (brief === null) return;
     setRewritingChapters((prev) => [...prev, chapterNum]);
     try {
@@ -198,12 +193,7 @@ export function BookDetail({
   };
 
   const handleRevise = async (chapterNum: number, mode: ReviseMode) => {
-    const brief = window.prompt(
-      data?.book.language === "en"
-        ? "Optional revise brief for this run only. Leave blank to use existing focus."
-        : "可选：输入这次修订要遵循的补充想法。留空则沿用现有 focus。",
-      "",
-    );
+    const brief = window.prompt(t("book.revisePrompt"), "");
     if (brief === null) return;
     setRevisingChapters((prev) => [...prev, chapterNum]);
     try {
@@ -221,12 +211,7 @@ export function BookDetail({
   };
 
   const handleSync = async (chapterNum: number) => {
-    const brief = window.prompt(
-      data?.book.language === "en"
-        ? "Optional sync brief for interpreting the edited chapter body. Leave blank to sync directly from the text."
-        : "可选：输入这次同步时要遵循的补充说明。留空则直接按正文同步。",
-      "",
-    );
+    const brief = window.prompt(t("book.syncPrompt"), "");
     if (brief === null) return;
     setSyncingChapters((prev) => [...prev, chapterNum]);
     try {
@@ -276,7 +261,7 @@ export function BookDetail({
       }
     }
     if (failed > 0) {
-      alert(`${failed}/${reviewable.length} approve(s) failed`);
+      alert(t("book.approveFailures", { failed, total: reviewable.length }));
     }
     refetch();
   };
@@ -568,10 +553,12 @@ export function BookDetail({
                         onClick={async () => {
                           try {
                             const auditResult = await fetchJson<{ passed?: boolean; issues?: unknown[] }>(`/books/${bookId}/audit/${ch.number}`, { method: "POST" });
-                            alert(auditResult.passed ? "Audit passed" : `Audit failed: ${auditResult.issues?.length ?? 0} issues`);
+                            alert(auditResult.passed
+                              ? t("book.auditPassed")
+                              : t("book.auditFailedIssues", { count: auditResult.issues?.length ?? 0 }));
                             refetch();
                           } catch (e) {
-                            alert(e instanceof Error ? e.message : "Audit failed");
+                            alert(e instanceof Error ? e.message : t("book.auditErrorTitle"));
                           }
                         }}
                         className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all shadow-sm"
@@ -593,7 +580,7 @@ export function BookDetail({
                         onClick={() => handleSync(ch.number)}
                         disabled={syncingChapters.includes(ch.number) || ch.number !== latestPersistedChapter}
                         className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all shadow-sm disabled:opacity-50"
-                        title={data?.book.language === "en" ? "Sync truth/state from edited chapter" : "根据已编辑章节同步 truth/state"}
+                        title={t("book.syncTooltip")}
                       >
                         {syncingChapters.includes(ch.number)
                           ? <div className="w-3.5 h-3.5 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />

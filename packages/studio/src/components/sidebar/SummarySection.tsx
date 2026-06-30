@@ -8,6 +8,7 @@ import { useChatStore } from "../../store/chat";
 import type { BookSummary } from "../../store/chat";
 import { fetchJson } from "../../hooks/use-api";
 import { SidebarCard } from "./SidebarCard";
+import type { TFunction } from "../../hooks/use-i18n";
 
 const streamdownPlugins = { cjk, code, math, mermaid };
 
@@ -41,9 +42,10 @@ function parseStoryBible(content: string): BookSummary {
 
 interface SummarySectionProps {
   readonly bookId: string;
+  readonly t: TFunction;
 }
 
-export function SummarySection({ bookId }: SummarySectionProps) {
+export function SummarySection({ bookId, t }: SummarySectionProps) {
   const summary = useChatStore((s) => s.bookSummary);
   const setBookSummary = useChatStore((s) => s.setBookSummary);
   const bookDataVersion = useChatStore((s) => s.bookDataVersion);
@@ -62,14 +64,14 @@ export function SummarySection({ bookId }: SummarySectionProps) {
   return (
     <>
       {summary.world && (
-        <SidebarCard title="世界观">
+        <SidebarCard title={t("summary.world")}>
           <Streamdown className={SIDEBAR_MD_CLASS} plugins={streamdownPlugins}>
             {summary.world}
           </Streamdown>
         </SidebarCard>
       )}
       {(summary.protagonist || summary.cast) && (
-        <SidebarCard title="角色">
+        <SidebarCard title={t("summary.characters")}>
           {summary.protagonist && (
             <Streamdown className={SIDEBAR_MD_CLASS} plugins={streamdownPlugins}>
               {summary.protagonist}

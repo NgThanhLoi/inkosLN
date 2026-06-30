@@ -22,6 +22,11 @@ const strings: Record<string, I18nString> = {
   "dash.chapters": { zh: "章", en: "chapters" , vi: "chương" },
   "dash.recentEvents": { zh: "最近事件", en: "Recent Events" , vi: "Sự kiện gần đây" },
   "dash.writingProgress": { zh: "写作进度", en: "Writing Progress" , vi: "Tiến độ viết" },
+  "dash.loading": { zh: "正在收集书稿...", en: "Gathering manuscripts...", vi: "Đang thu thập bản thảo..." },
+  "dash.loadErrorTitle": { zh: "加载书库失败", en: "Failed to load library", vi: "Tải thư viện thất bại" },
+  "dash.banner.title": { zh: "还没有配置 AI 模型", en: "No AI model configured yet", vi: "Chưa cấu hình mô hình AI" },
+  "dash.banner.body": { zh: "配好一个服务商才能开始创作", en: "Configure a service to start writing", vi: "Hãy cấu hình một dịch vụ để bắt đầu sáng tác" },
+  "dash.banner.cta": { zh: "去配置", en: "Configure", vi: "Cấu hình" },
 
   // Book Detail
   "book.writeNext": { zh: "写下一章", en: "Write Next" , vi: "Viết chương tiếp theo" },
@@ -67,7 +72,7 @@ const strings: Record<string, I18nString> = {
   "bread.newBook": { zh: "新建书籍", en: "New Book" , vi: "Sách mới" },
   "bread.config": { zh: "配置", en: "Config" , vi: "Cấu hình" },
   "bread.home": { zh: "首页", en: "Home" , vi: "Trang chủ" },
-  "bread.chapter": { zh: "第{n}章", en: "Chapter {n}" },
+  "bread.chapter": { zh: "第{n}章", en: "Chapter {n}", vi: "Chương {n}" },
 
   // Config
   "config.title": { zh: "项目配置", en: "Project Config" , vi: "Cấu hình dự án" },
@@ -118,6 +123,14 @@ const strings: Record<string, I18nString> = {
   "book.statusCompleted": { zh: "已完成", en: "Completed" , vi: "Đã hoàn thành" },
   "book.statusDropped": { zh: "已放弃", en: "Dropped" , vi: "Đã bỏ" },
   "book.truthFiles": { zh: "真相文件", en: "Truth Files" , vi: "Tệp sự thật" },
+  "book.rewritePrompt": { zh: "可选：输入这次重写要遵循的补充想法。留空则沿用现有 focus。", en: "Optional rewrite brief for this run only. Leave blank to use existing focus.", vi: "Tùy chọn: nhập ý tưởng bổ sung cho lần viết lại này. Để trống sẽ dùng focus hiện tại." },
+  "book.revisePrompt": { zh: "可选：输入这次修订要遵循的补充想法。留空则沿用现有 focus。", en: "Optional revise brief for this run only. Leave blank to use existing focus.", vi: "Tùy chọn: nhập ý tưởng bổ sung cho lần sửa lần này. Để trống sẽ dùng focus hiện tại." },
+  "book.syncPrompt": { zh: "可选：输入这次同步时要遵循的补充说明。留空则直接按正文同步。", en: "Optional sync brief for interpreting the edited chapter body. Leave blank to sync directly from the text.", vi: "Tùy chọn: nhập ghi chú bổ sung cho lần đồng bộ này. Để trống sẽ đồng bộ trực tiếp theo văn bản." },
+  "book.syncTooltip": { zh: "根据已编辑章节同步 truth/state", en: "Sync truth/state from edited chapter", vi: "Đồng bộ truth/state từ chương đã chỉnh sửa" },
+  "book.approveFailures": { zh: "{failed}/{total} 章审核通过失败", en: "{failed}/{total} approve(s) failed", vi: "{failed}/{total} chương phê duyệt thất bại" },
+  "book.auditPassed": { zh: "审计通过", en: "Audit passed", vi: "Kiểm tra đạt" },
+  "book.auditFailedIssues": { zh: "审计失败：{count} 个问题", en: "Audit failed: {count} issues", vi: "Kiểm tra thất bại: {count} vấn đề" },
+  "book.auditErrorTitle": { zh: "审计失败", en: "Audit failed", vi: "Kiểm tra thất bại" },
 
   // Style
   "style.title": { zh: "文风分析", en: "Style Analyzer" , vi: "Phân tích phong cách" },
@@ -138,6 +151,9 @@ const strings: Record<string, I18nString> = {
   "style.selectBook": { zh: "选择书籍...", en: "Select book..." , vi: "Chọn sách..." },
   "style.importGuide": { zh: "导入文风指南", en: "Import Style Guide" , vi: "Nhập hướng dẫn phong cách" },
   "style.emptyHint": { zh: "粘贴文本并点击分析查看文风档案", en: "Paste text and click Analyze to see style profile" , vi: "Dán văn bản và nhấp phân tích để xem hồ sơ phong cách" },
+  "style.importing": { zh: "导入中...", en: "Importing..." , vi: "Đang nhập..." },
+  "style.importSuccess": { zh: "文风指南导入成功！", en: "Style guide imported successfully!", vi: "Đã nhập hướng dẫn phong cách thành công!" },
+  "style.error": { zh: "错误：{message}", en: "Error: {message}", vi: "Lỗi: {message}" },
 
   // Import
   "import.title": { zh: "导入工具", en: "Import Tools" , vi: "Công cụ nhập" },
@@ -153,6 +169,9 @@ const strings: Record<string, I18nString> = {
   "import.pasteMaterial": { zh: "粘贴原作文本/设定/角色资料...", en: "Paste source material..." , vi: "Dán văn bản/cài đặt/hồ sơ nhân vật gốc..." },
   "import.importing": { zh: "导入中...", en: "Importing..." , vi: "Đang nhập..." },
   "import.creating": { zh: "创建中...", en: "Creating..." , vi: "Đang tạo..." },
+  "import.successChapters": { zh: "已导入 {n} 章", en: "Imported {n} chapters", vi: "Đã nhập {n} chương" },
+  "import.successCanon": { zh: "母本导入成功！", en: "Canon imported successfully!", vi: "Đã nhập nguyên tác thành công!" },
+  "import.successFanfic": { zh: "同人小说已创建：{id}", en: "Fanfic created: {id}", vi: "Đã tạo đồng nhân: {id}" },
 
   // Radar
   "radar.title": { zh: "市场雷达", en: "Market Radar" , vi: "Radar thị trường" },
@@ -194,6 +213,10 @@ const strings: Record<string, I18nString> = {
   "genre.selectHint": { zh: "选择题材查看详情", en: "Select a genre to view details" , vi: "Chọn thể loại để xem chi tiết" },
   "genre.commaSeparated": { zh: "逗号分隔", en: "comma-separated" , vi: "phân tách bằng dấu phẩy" },
   "genre.rulesMd": { zh: "规则（Markdown）", en: "Rules (Markdown)" , vi: "Quy tắc (Markdown)" },
+  "genre.copied": { zh: "已复制 {id} 到项目 genres/", en: "Copied {id} to project genres/", vi: "Đã sao chép {id} vào genres/ của dự án" },
+  "genre.createFailed": { zh: "创建题材失败：{message}", en: "Failed to create genre: {message}", vi: "Tạo thể loại thất bại: {message}" },
+  "genre.updateFailed": { zh: "更新题材失败：{message}", en: "Failed to update genre: {message}", vi: "Cập nhật thể loại thất bại: {message}" },
+  "genre.deleteFailed": { zh: "删除题材失败：{message}", en: "Failed to delete genre: {message}", vi: "Xóa thể loại thất bại: {message}" },
 
   // Config extras
   "config.modelRouting": { zh: "模型路由", en: "Model Routing" , vi: "Định tuyến mô hình" },
@@ -221,6 +244,8 @@ const strings: Record<string, I18nString> = {
   "truth.notFound": { zh: "文件未找到", en: "File not found" , vi: "Không tìm thấy tệp" },
   "truth.selectFile": { zh: "选择文件查看内容", en: "Select a file to view" , vi: "Chọn tệp để xem" },
   "truth.selectHint": { zh: "选择文件查看内容", en: "Select a file to view" , vi: "Chọn tệp để xem" },
+  "truth.shimTitle": { zh: "兼容层只读 / Read-only compat shim", en: "Read-only compat shim", vi: "Chỉ đọc (lớp tương thích)" },
+  "truth.shimBody": { zh: "本文件已废弃，仅供外部读取。权威来源：", en: "This file is deprecated and exposed only for external readers. Authoritative source:", vi: "Tệp này đã ngừng dùng, chỉ cung cấp cho bên ngoài đọc. Nguồn chính thức:" },
 
   // Dashboard
   "dash.subtitle": { zh: "管理你的文学宇宙和 AI 辅助草稿。", en: "Manage your literary universe and AI-assisted drafts." , vi: "Quản lý vũ trụ văn học và bản thảo được AI hỗ trợ." },
@@ -262,13 +287,176 @@ const strings: Record<string, I18nString> = {
   "common.loading": { zh: "加载中...", en: "Loading..." , vi: "Đang tải..." },
   "common.refresh": { zh: "刷新", en: "Refresh" , vi: "Làm mới" },
   "common.enterCommand": { zh: "输入指令...", en: "Enter command..." , vi: "Nhập lệnh..." },
+  "common.errorPrefix": { zh: "错误：", en: "Error: ", vi: "Lỗi: " },
+  "common.inProgressSuffix": { zh: "中...", en: "...", vi: "..." },
+  "common.errorWithMessage": { zh: "错误：{message}", en: "Error: {message}", vi: "Lỗi: {message}" },
+  "chat.shimmer": { zh: "思考中...", en: "Thinking...", vi: "Đang suy nghĩ..." },
+  "chat.placeholder": { zh: "输入指令...", en: "Enter command...", vi: "Nhập lệnh..." },
+  "chat.guidance": { zh: "告诉我你想写什么——题材、世界观、主角、核心冲突", en: "Tell me what you want to write — genre, world, protagonist, core conflict", vi: "Hãy cho mình biết bạn muốn viết gì — thể loại, bối cảnh, nhân vật chính, xung đột cốt lõi" },
+  "chat.modelPicker.loading": { zh: "加载模型...", en: "Loading models...", vi: "Đang tải mô hình..." },
+  "chat.modelPicker.selectModel": { zh: "选择模型", en: "Select model", vi: "Chọn mô hình" },
+  "chat.modelPicker.configure": { zh: "配置模型 →", en: "Configure model →", vi: "Cấu hình mô hình →" },
+  "chat.modelPicker.search": { zh: "搜索模型...", en: "Search models...", vi: "Tìm mô hình..." },
+  "chat.modelPicker.empty": { zh: "无匹配模型", en: "No matching models", vi: "Không có mô hình phù hợp" },
+  "chat.modelPicker.manage": { zh: "管理服务商", en: "Manage services", vi: "Quản lý dịch vụ" },
+  "services.title": { zh: "服务商管理", en: "Services", vi: "Quản lý dịch vụ" },
+  "services.breadcrumb.home": { zh: "首页", en: "Home", vi: "Trang chủ" },
+  "services.search.placeholder": { zh: "搜索服务商", en: "Search services", vi: "Tìm dịch vụ" },
+  "services.search.clearAria": { zh: "清空搜索", en: "Clear search", vi: "Xóa tìm kiếm" },
+  "services.filter.all": { zh: "全部 {count}", en: "All {count}", vi: "Tất cả {count}" },
+  "services.filter.clear": { zh: "清除筛选", en: "Clear filters", vi: "Xóa bộ lọc" },
+  "services.filter.connectedOnly": { zh: "只看已连接 ({count})", en: "Only connected ({count})", vi: "Chỉ đã kết nối ({count})" },
+  "services.custom.title": { zh: "自定义服务", en: "Custom services", vi: "Dịch vụ tùy chỉnh" },
+  "services.custom.create": { zh: "自定义服务", en: "Custom service", vi: "Dịch vụ tùy chỉnh" },
+  "services.empty": { zh: "没有匹配的服务商", en: "No matching services", vi: "Không có dịch vụ phù hợp" },
+  "services.connected": { zh: "已连接", en: "Connected", vi: "Đã kết nối" },
+  "services.notConfigured": { zh: "未配置", en: "Not configured", vi: "Chưa cấu hình" },
+  "services.cover.title": { zh: "封面生成", en: "Cover generation", vi: "Tạo bìa" },
+  "services.cover.description": { zh: "只配置封面通道和模型；封面尺寸由短篇封面提示词和内部默认处理。", en: "Only configure the cover channel and model; cover size is handled by short-fiction cover prompts and internal defaults.", vi: "Chỉ cấu hình kênh và mô hình bìa; kích thước bìa được xử lý bởi lời nhắc bìa truyện ngắn và mặc định nội bộ." },
+  "services.cover.hasKey": { zh: "已有密钥", en: "Key saved", vi: "Đã có khóa" },
+  "services.cover.service": { zh: "服务", en: "Service", vi: "Dịch vụ" },
+  "services.cover.model": { zh: "封面模型", en: "Cover model", vi: "Mô hình bìa" },
+  "services.cover.save": { zh: "保存封面配置", en: "Save cover config", vi: "Lưu cấu hình bìa" },
+  "services.cover.saved": { zh: "封面配置已保存", en: "Cover config saved", vi: "Đã lưu cấu hình bìa" },
+  "services.cover.loadFailed": { zh: "读取封面配置失败", en: "Failed to load cover config", vi: "Tải cấu hình bìa thất bại" },
+  "services.cover.saveFailed": { zh: "保存封面配置失败", en: "Failed to save cover config", vi: "Lưu cấu hình bìa thất bại" },
+  "services.detail.back": { zh: "返回服务商管理", en: "Back to services", vi: "Quay lại quản lý dịch vụ" },
+  "services.detail.connected": { zh: "已连接", en: "Connected", vi: "Đã kết nối" },
+  "services.detail.customName": { zh: "服务名称", en: "Service name", vi: "Tên dịch vụ" },
+  "services.detail.customNamePlaceholder": { zh: "例如：本地 Ollama", en: "e.g. Local Ollama", vi: "vd: Ollama cục bộ" },
+  "services.detail.apiKey": { zh: "API Key", en: "API Key", vi: "API Key" },
+  "services.detail.test": { zh: "测试连接", en: "Test connection", vi: "Kiểm tra kết nối" },
+  "services.detail.save": { zh: "保存", en: "Save", vi: "Lưu" },
+  "services.detail.delete": { zh: "删除配置", en: "Delete config", vi: "Xóa cấu hình" },
+  "services.detail.errors.apiKeyRequired": { zh: "请先输入 API Key", en: "Please enter an API key first", vi: "Vui lòng nhập API Key trước" },
+  "services.detail.errors.baseUrlRequired": { zh: "请先填写 Base URL", en: "Please fill in Base URL first", vi: "Vui lòng điền Base URL trước" },
+  "services.detail.errors.connectFailed": { zh: "连接失败", en: "Connection failed", vi: "Kết nối thất bại" },
+  "services.detail.errors.deleteFailed": { zh: "删除失败", en: "Delete failed", vi: "Xóa thất bại" },
+  "services.detail.errors.saveFailed": { zh: "保存失败", en: "Save failed", vi: "Lưu thất bại" },
+  "services.detail.confirmDelete": { zh: "删除\"{name}\"的配置和密钥？", en: "Delete \"{name}\" config and key?", vi: "Xóa cấu hình và khóa của \"{name}\"?" },
+  "services.detail.success.connected": { zh: "连接成功，{n} 个模型", en: "Connected, {n} models", vi: "Kết nối thành công, {n} mô hình" },
+  "services.detail.success.autoMatched": { zh: "，已自动匹配 {model} / {apiFormat} / {streamLabel}", en: ", auto-matched {model} / {apiFormat} / {streamLabel}", vi: ", đã tự động khớp {model} / {apiFormat} / {streamLabel}" },
+  "services.detail.success.saved": { zh: "已保存", en: "Saved", vi: "Đã lưu" },
+  "services.detail.protocol": { zh: "协议类型", en: "Protocol", vi: "Loại giao thức" },
+  "services.detail.protocol.chat": { zh: "Chat / Completions", en: "Chat / Completions", vi: "Chat / Completions" },
+  "services.detail.protocol.responses": { zh: "Responses", en: "Responses", vi: "Responses" },
+  "services.detail.streaming": { zh: "流式响应", en: "Streaming", vi: "Phản hồi luồng" },
+  "services.detail.streaming.on": { zh: "开启", en: "On", vi: "Bật" },
+  "services.detail.streaming.off": { zh: "关闭", en: "Off", vi: "Tắt" },
+  "services.detail.availableModels": { zh: "可用模型（{n}）", en: "Available models ({n})", vi: "Mô hình khả dụng ({n})" },
+  "services.detail.availableModelsEmpty": { zh: "点击\"测试连接\"查看可用模型", en: 'Click "Test connection" to see available models', vi: "Nhấp \"Kiểm tra kết nối\" để xem mô hình khả dụng" },
+  "services.detail.advanced": { zh: "高级参数", en: "Advanced parameters", vi: "Tham số nâng cao" },
+  "services.detail.temperature": { zh: "temperature", en: "temperature", vi: "temperature" },
+  "services.detail.streamLabel.stream": { zh: "流式", en: "streaming", vi: "luồng" },
+  "services.detail.streamLabel.noStream": { zh: "非流式", en: "non-streaming", vi: "không luồng" },
+  "services.detail.customFallback": { zh: "自定义服务", en: "Custom service", vi: "Dịch vụ tùy chỉnh" },
+  "services.sourceCard.loading": { zh: "正在读取配置来源…", en: "Loading config source…", vi: "Đang tải nguồn cấu hình…" },
+  "services.sourceCard.loadFailed": { zh: "读取配置来源失败", en: "Failed to load config source", vi: "Tải nguồn cấu hình thất bại" },
+  "services.sourceCard.switchFailed": { zh: "切换配置来源失败", en: "Failed to switch config source", vi: "Chuyển nguồn cấu hình thất bại" },
+  "services.sourceCard.title": { zh: "LLM 配置来源", en: "LLM config source", vi: "Nguồn cấu hình LLM" },
+  "services.sourceCard.runtime": { zh: "Studio 运行时：", en: "Studio runtime:", vi: "Studio runtime:" },
+  "services.sourceCard.runtimeHint": { zh: "使用服务页配置和 Studio 密钥", en: "uses services-page config and Studio keys", vi: "sử dụng cấu hình trang dịch vụ và khóa Studio" },
+  "services.sourceCard.switching": { zh: "切换中…", en: "Switching…", vi: "Đang chuyển…" },
+  "services.sourceCard.usingStudio": { zh: "使用 Studio 配置", en: "Use Studio config", vi: "Dùng cấu hình Studio" },
+  "services.sourceCard.envShimNotice": { zh: "检测到旧配置标记为 `.env` 优先。Studio 运行时不会使用它；CLI、daemon 和部署环境仍可按 env 覆盖层使用。", en: "Detected legacy config marked `.env` priority. Studio runtime will not use it; CLI, daemon, and deploy environments can still use the env override.", vi: "Phát hiện cấu hình cũ ưu tiên `.env`. Studio runtime sẽ không dùng nó; CLI, daemon và môi trường triển khai vẫn có thể dùng lớp ghi đè env." },
+  "services.sourceCard.envDetected": { zh: "检测到 LLM 环境变量覆盖：", en: "Detected LLM env override:", vi: "Phát hiện ghi đè env LLM:" },
+  "services.sourceCard.envDetectedUnknown": { zh: "已检测到但未定位来源", en: "Detected but source unknown", vi: "Đã phát hiện nhưng không xác định nguồn" },
+  "services.sourceCard.apiKey.set": { zh: "已设置", en: "set", vi: "đã đặt" },
+  "services.sourceCard.apiKey.unset": { zh: "未设置", en: "not set", vi: "chưa đặt" },
+  "services.sourceCard.envDetectedHint": { zh: "当前虽然检测到 .env，但 Studio 和 Agent 请求会忽略这套 LLM 覆盖；CLI、daemon 和部署环境可以使用它。", en: "Even though .env is detected, Studio and Agent requests ignore this LLM override; CLI, daemon, and deploy environments can use it.", vi: "Mặc dù phát hiện .env, Studio và Agent sẽ bỏ qua lớp ghi đè LLM này; CLI, daemon và môi trường triển khai có thể dùng nó." },
+  "services.sourceCard.envNotDetected": { zh: "未检测到目录或全局 `.env` 里的 LLM 覆盖变量。当前会直接使用项目配置和 Studio 服务配置。", en: "No LLM override variables detected in project or global `.env`. Project config and Studio service config will be used directly.", vi: "Không phát hiện biến ghi đè LLM trong `.env` của dự án hoặc toàn cục. Sẽ dùng trực tiếp cấu hình dự án và cấu hình dịch vụ Studio." },
+  "services.sourceCard.envProject": { zh: "项目 .env", en: "Project .env", vi: ".env của dự án" },
+  "services.sourceCard.envGlobal": { zh: "全局 ~/.inkos/.env", en: "Global ~/.inkos/.env", vi: "~/.inkos/.env toàn cục" },
+  "services.quickLinks.prefix": { zh: "配置入口", en: "Setup links", vi: "Liên kết cấu hình" },
+  // Sidebar session dialog
+  "sidebar.session.rename": { zh: "改名", en: "Rename", vi: "Đổi tên" },
+  "sidebar.session.delete": { zh: "删除", en: "Delete", vi: "Xóa" },
+  "sidebar.session.new": { zh: "新建会话", en: "New session", vi: "Tạo phiên mới" },
+  "sidebar.session.renameTitle": { zh: "重命名会话", en: "Rename session", vi: "Đổi tên phiên" },
+  "sidebar.session.renamePlaceholder": { zh: "输入新标题", en: "Enter new title", vi: "Nhập tiêu đề mới" },
+  "sidebar.session.confirmDelete": { zh: "删除会话", en: "Delete session", vi: "Xóa phiên" },
+  "sidebar.session.confirmDeleteBody": { zh: "确认删除\"{title}\"吗？该操作只删除这条会话，不影响书籍内容。", en: 'Delete "{title}"? This only removes the session, not book content.', vi: 'Xóa "{title}"? Thao tác này chỉ xóa phiên này, không ảnh hưởng nội dung sách.' },
+  "sidebar.session.newSession": { zh: "新会话", en: "New session", vi: "Phiên mới" },
+  // Sidebar time helpers
+  "sidebar.time.justNow": { zh: "刚刚", en: "just now", vi: "vừa xong" },
+  "sidebar.time.minutes": { zh: "{n} 分钟", en: "{n} min", vi: "{n} phút" },
+  "sidebar.time.hours": { zh: "{n} 小时", en: "{n} h", vi: "{n} giờ" },
+  "sidebar.time.days": { zh: "{n} 天", en: "{n} d", vi: "{n} ngày" },
+  "sidebar.time.months": { zh: "{n} 个月", en: "{n} mo", vi: "{n} tháng" },
+  // Tool execution steps
+  "tool.status.running": { zh: "执行中", en: "Running", vi: "Đang chạy" },
+  "tool.status.processing": { zh: "处理结果", en: "Processing result", vi: "Đang xử lý kết quả" },
+  "tool.status.completed": { zh: "已完成", en: "Completed", vi: "Đã hoàn thành" },
+  "tool.status.error": { zh: "失败", en: "Failed", vi: "Thất bại" },
+  "tool.status.approvalRequested": { zh: "等待确认", en: "Awaiting approval", vi: "Chờ xác nhận" },
+  "tool.status.approvalResponded": { zh: "已响应", en: "Responded", vi: "Đã phản hồi" },
+  "tool.status.inputAvailable": { zh: "执行中", en: "Running", vi: "Đang chạy" },
+  "tool.status.inputStreaming": { zh: "处理中", en: "Processing", vi: "Đang xử lý" },
+  "tool.status.outputAvailable": { zh: "已完成", en: "Completed", vi: "Đã hoàn thành" },
+  "tool.status.outputDenied": { zh: "已拒绝", en: "Denied", vi: "Đã từ chối" },
+  "tool.status.outputError": { zh: "出错", en: "Error", vi: "Lỗi" },
+  "tool.progress.thinking": { zh: "思考中", en: "Thinking", vi: "Đang suy nghĩ" },
+  "tool.progress.charsSuffix": { zh: "{n}字", en: "{n} chars", vi: "{n} ký tự" },
+  "tool.cover.failed": { zh: "封面未生成：{error}", en: "Cover not generated: {error}", vi: "Chưa tạo được bìa: {error}" },
+  "tool.cover.fallbackTitle": { zh: "短篇封面", en: "Short-fiction cover", vi: "Bìa truyện ngắn" },
+  "tool.utilities.group": { zh: "{n} 个文件操作", en: "{n} file operations", vi: "{n} thao tác tệp" },
+  "tool.parameters": { zh: "参数", en: "Parameters", vi: "Tham số" },
+  "tool.result": { zh: "结果", en: "Result", vi: "Kết quả" },
+  "tool.error": { zh: "错误", en: "Error", vi: "Lỗi" },
+  // Foundation / file labels (shared by BookSidebar + FoundationSection)
+  "foundation.title": { zh: "核心文件", en: "Core files", vi: "Tệp cốt lõi" },
+  "foundation.storyBible": { zh: "世界观设定", en: "Story bible", vi: "Thiết lập thế giới quan" },
+  "foundation.volumeOutline": { zh: "卷纲规划", en: "Volume outline", vi: "Quy hoạch quyển" },
+  "foundation.bookRules": { zh: "叙事规则", en: "Book rules", vi: "Quy tắc kể chuyện" },
+  "foundation.currentState": { zh: "状态卡", en: "Current state", vi: "Thẻ trạng thái" },
+  "foundation.pendingHooks": { zh: "伏笔池", en: "Pending hooks", vi: "Vũ trí chờ" },
+  "foundation.subplotBoard": { zh: "支线进度", en: "Subplot board", vi: "Tiến độ phụ tuyến" },
+  "foundation.emotionalArcs": { zh: "感情线", en: "Emotional arcs", vi: "Tuyến tình cảm" },
+  "foundation.characterMatrix": { zh: "角色矩阵", en: "Character matrix", vi: "Ma trận nhân vật" },
+  // BookSidebar status labels
+  "bookSidebar.op.write": { zh: "正在写作中...", en: "Writing...", vi: "Đang viết..." },
+  "bookSidebar.op.audit": { zh: "正在审计中...", en: "Auditing...", vi: "Đang kiểm tra..." },
+  "bookSidebar.op.revise": { zh: "正在修订中...", en: "Revising...", vi: "Đang sửa lại..." },
+  "bookSidebar.fileMissing": { zh: "文件不存在", en: "File does not exist", vi: "Tệp không tồn tại" },
+  "bookSidebar.title": { zh: "书籍信息", en: "Book info", vi: "Thông tin sách" },
+  // QuickActions
+  "quickActions.writeNextLabel": { zh: "写下一章", en: "Write next", vi: "Viết tiếp" },
+  "quickActions.writeNextCommand": { zh: "写下一章", en: "Write next chapter", vi: "Viết chương tiếp theo" },
+  "quickActions.auditLabel": { zh: "审计", en: "Audit", vi: "Kiểm tra" },
+  "quickActions.auditCommand": { zh: "审计当前章节", en: "Audit current chapter", vi: "Kiểm tra chương hiện tại" },
+  "quickActions.exportLabel": { zh: "导出", en: "Export", vi: "Xuất" },
+  "quickActions.exportCommand": { zh: "导出当前书稿", en: "Export current manuscript", vi: "Xuất bản thảo hiện tại" },
+  "quickActions.radarLabel": { zh: "市场雷达", en: "Market radar", vi: "Radar thị trường" },
+  "quickActions.radarCommand": { zh: "运行市场雷达扫描", en: "Run market radar scan", vi: "Chạy quét radar thị trường" },
+  // Sidebar sections
+  "chaptersSection.title": { zh: "章节", en: "Chapters", vi: "Chương" },
+  "chaptersSection.empty": { zh: "暂无章节", en: "No chapters", vi: "Chưa có chương" },
+  "progress.title": { zh: "执行", en: "Execution", vi: "Thực thi" },
+  "progress.init.book": { zh: "建书", en: "Init book", vi: "Khởi tạo sách" },
+  "progress.init.outline": { zh: "大纲", en: "Outline", vi: "Phác thảo" },
+  "progress.init.foundation": { zh: "生成母本", en: "Foundation", vi: "Tạo nền tảng" },
+  "progress.init.tooling": { zh: "工具加载", en: "Tooling", vi: "Tải công cụ" },
+  "progress.init.completed": { zh: "完成", en: "Completed", vi: "Hoàn tất" },
+  "progress.write.planning": { zh: "规划", en: "Planning", vi: "Lập kế hoạch" },
+  "progress.write.outlining": { zh: "大纲", en: "Outlining", vi: "Phác thảo dàn ý" },
+  "progress.write.writing": { zh: "写作", en: "Writing", vi: "Viết" },
+  "progress.write.auditing": { zh: "审计", en: "Auditing", vi: "Kiểm tra" },
+  "progress.write.revising": { zh: "修订", en: "Revising", vi: "Sửa lại" },
+  "progress.write.polishing": { zh: "打磨", en: "Polishing", vi: "Đánh bóng" },
+  "progress.write.export": { zh: "导出", en: "Exporting", vi: "Xuất" },
+  "character.title": { zh: "角色", en: "Characters", vi: "Nhân vật" },
+  "character.field.role": { zh: "定位", en: "Role", vi: "Vai trò" },
+  "character.field.tags": { zh: "标签", en: "Tags", vi: "Nhãn" },
+  "character.field.current": { zh: "当前", en: "Current", vi: "Hiện tại" },
+  "summary.world": { zh: "世界观", en: "World", vi: "Thế giới quan" },
+  "summary.characters": { zh: "角色", en: "Characters", vi: "Nhân vật" },
   "chapter.readyForReview": { zh: "待审核", en: "Ready for Review" , vi: "Sẵn sàng để xem xét" },
   "chapter.approved": { zh: "已通过", en: "Approved" , vi: "Đã phê duyệt" },
   "chapter.drafted": { zh: "草稿", en: "Drafted" , vi: "Đã thảo" },
   "chapter.needsRevision": { zh: "需修订", en: "Needs Revision" , vi: "Cần sửa lại" },
   "chapter.imported": { zh: "已导入", en: "Imported" , vi: "Đã nhập" },
   "chapter.auditFailed": { zh: "审计失败", en: "Audit Failed" , vi: "Kiểm tra thất bại" },
-  "chapter.label": { zh: "第{n}章", en: "Chapter {n}" },
+  "chapter.label": { zh: "第{n}章", en: "Chapter {n}", vi: "Chương {n}" },
   "common.exportSuccess": { zh: "已导出到项目目录", en: "Exported to project directory" , vi: "Đã xuất vào thư mục dự án" },
   "common.exportFormat": { zh: "导出格式", en: "Export format" , vi: "Định dạng xuất" },
   "logs.title": { zh: "日志", en: "Logs" , vi: "Nhật ký" },
@@ -277,16 +465,30 @@ const strings: Record<string, I18nString> = {
 } as const;
 
 export type StringKey = keyof typeof strings;
-export type TFunction = (key: StringKey) => string;
+export type I18nParams = Readonly<Record<string, string | number>>;
+export type TFunction = (key: StringKey, params?: I18nParams) => string;
+
+function interpolate(template: string, params?: I18nParams): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => {
+    const value = params[name];
+    return value === undefined ? match : String(value);
+  });
+}
 
 export function useI18n() {
   const { data } = useApi<{ language: string }>("/project");
   const lang: Lang = data?.language === "en" ? "en" : data?.language === "vi" ? "vi" : "zh";
 
-  function t(key: StringKey): string {
+  function t(key: StringKey, params?: I18nParams): string {
     const entry = strings[key];
-    if (lang === "vi" && entry.vi) return entry.vi;
-    return entry[lang];
+    let template: string;
+    if (lang === "vi" && entry.vi) {
+      template = entry.vi;
+    } else {
+      template = entry[lang] ?? entry.zh;
+    }
+    return interpolate(template, params);
   }
 
   return { t, lang };

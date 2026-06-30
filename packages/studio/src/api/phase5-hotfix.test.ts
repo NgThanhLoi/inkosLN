@@ -111,6 +111,10 @@ function cloneProjectConfig(): typeof projectConfig {
 }
 
 describe("Phase 5 hotfix 1 — Studio truth file endpoints", () => {
+  // Server boot + filesystem setup is slow on Windows; give the suite more headroom
+  // than vitest's 5s default so cold-start tests don't flake in CI.
+  vi.setConfig({ testTimeout: 30_000 });
+
   let root: string;
   let bookDir: string;
   let storyDir: string;

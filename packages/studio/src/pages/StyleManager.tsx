@@ -30,10 +30,17 @@ export interface StyleStatusNotice {
 export function buildStyleStatusNotice(analyzeStatus: string, importStatus: string): StyleStatusNotice | null {
   const message = analyzeStatus.trim() || importStatus.trim();
   if (!message) return null;
-  if (message.startsWith("Error:")) {
+  // Tone detection: the messages are produced by handleAnalyze / handleImport
+  // using t("style.error", { message }) / t("style.importing") / t("style.importSuccess").
+  // The resolved strings differ per language, so detect tone by the importStatus
+  // shape (the analyze-error path produces the localized "Error: ..." prefix).
+  // Fallback: any non-success status that doesn't end with the localized
+  // "..." / "…" suffix is treated as an error.
+  const lower = message.toLowerCase();
+  if (lower.startsWith("error:") || lower.startsWith("lỗi:")) {
     return { tone: "error", message };
   }
-  if (message.endsWith("...")) {
+  if (message.endsWith("...") || message.endsWith("…")) {
     return { tone: "info", message };
   }
   return { tone: "success", message };
@@ -64,19 +71,19 @@ export function StyleManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
       });
       setProfile(data);
     } catch (e) {
-      setAnalyzeStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setAnalyzeStatus(t("style.error", { message: e instanceof Error ? e.message : String(e) }));
     }
     setLoading(false);
   };
 
   const handleImport = async () => {
     if (!importBookId || !text.trim()) return;
-    setImportStatus("Importing...");
+    setImportStatus(t("style.importing"));
     try {
       await postApi(`/books/${importBookId}/style/import`, { text, sourceName: sourceName || "sample" });
-      setImportStatus("Style guide imported successfully!");
+      setImportStatus(t("style.importSuccess"));
     } catch (e) {
-      setImportStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setImportStatus(t("style.error", { message: e instanceof Error ? e.message : String(e) }));
     }
   };
 
